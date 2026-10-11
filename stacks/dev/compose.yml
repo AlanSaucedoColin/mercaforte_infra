@@ -9,7 +9,7 @@ services:
       - POSTGRES_PASSWORD=mercaforte
       - POSTGRES_DB=mercaforte
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mercaforte -d mercaforte"]
       interval: 5s
@@ -24,15 +24,10 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@mercaforte.com
       PGADMIN_DEFAULT_PASSWORD: mercaforte-dev
     volumes:
-      - pgadmin_data:/var/lib/pgadmin
+      - ./data/pgadmin:/var/lib/pgadmin
     depends_on:
       postgres:
         condition: service_healthy
-
-volumes:
-  postgres_data:
-    name: mercaforte_dev_postgres_data
-  pgadmin_data:
 
 networks:
   default:
