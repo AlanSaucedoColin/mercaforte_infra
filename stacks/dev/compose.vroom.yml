@@ -1,0 +1,55 @@
+name: mercaforte-routing
+
+# Place your region extract at ./data/osrm/region.osm.pbf, then prepare it:
+# docker compose -f compose.vroom.yml run --rm --no-deps osrm osrm-extract -p /opt/car.lua /data/region.osm.pbf
+# docker compose -f compose.vroom.yml run --rm --no-deps osrm osrm-partition /data/region.osrm
+# docker compose -f compose.vroom.yml run --rm --no-deps osrm osrm-customize /data/region.osrm
+# Start: docker compose -f compose.vroom.yml up -d
+
+services:
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    restart: unless-stopped
+    command:
+      - osrm-routed
+      - --algorithm
+      - mld
+      - --max-table-size
+      - "1002"
+      - --max-viaroute-size
+      - "1002"
+      - /data/region.osrm
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - ./data/osrm:/data
+    networks:
+      - routing
+
+  vroom:
+    image: ghcr.io/vroom-project/vroom-docker:v1.15.0
+    restart: unless-stopped
+    environment:
+      VROOM_ROUTER: osrm
+      VROOM_LOG: /conf
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - vroom-logs:/conf
+      - type: bind
+        source: ./configs/vroom/config.yml
+        target: /conf/config.yml
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      - osrm
+    networks:
+      - routing
+
+networks:
+  routing:
+    driver: bridge
+
+volumes:
+  vroom-logs:
