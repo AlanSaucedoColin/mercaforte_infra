@@ -1,0 +1,86 @@
+# --- Control de Versiones ---
+.git
+.gitignore
+.gitattributes
+.gitlab-ci.yml
+.github
+
+# --- Documentación y Texto ---
+# Ignoramos todos los Readme, Changelogs, Licencias y archivos Markdown
+README
+README.*
+CHANGELOG
+CHANGELOG.*
+CONTRIBUTING
+CONTRIBUTING.*
+LICENSE
+LICENSE.*
+*.md
+*.txt
+*.adoc
+docs/
+javadoc/
+site/
+
+# --- Java & Maven (Artifacts) ---
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+# .mvn/
+# mvnw
+# mvnw.cmd
+
+# --- IDEs y Editores ---
+.idea/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+.factorypath
+.vscode/
+nbproject/
+
+# --- Archivos del Sistema Operativo ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- Logs y Temporales ---
+*.log
+logs/
+temp/
+tmp/
+coverage/
+
+# --- Docker y Compose  ---
+# Ignora el Dockerfile
+Dockerfile*
+
+# Ignora variaciones de docker-compose (el estándar antiguo y más común)
+docker-compose.yml
+docker-compose.*.yml
+
+# Ignora variaciones de compose (el estándar nuevo)
+compose.yml
+compose.*.yml
+
+# Ignora el propio archivo ignore
+.dockerignore
+
+# --- Seguridad y Entornos ---
+.env
+.env.*
+*.pem
+*.key
+*.p12
+id_rsa
+
+# Incluir los artefactos de despliegue en el contexto de build
+!deployments/**/*.war
+!deployments/**/*.ear
+!deployments/**/*.jar

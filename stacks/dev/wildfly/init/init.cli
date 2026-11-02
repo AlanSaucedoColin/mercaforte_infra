@@ -1,0 +1,55 @@
+# =====================================================================================
+# WildFly CLI - PostgreSQL Driver + DataSource "AppDS"
+# =====================================================================================
+
+# 0) Iniciar WildFly embebido (offline) usando standalone.xml
+embed-server --std-out=echo --server-config=standalone.xml
+
+# 1) Crear módulo del driver PostgreSQL
+module add --name=org.postgresql \
+  --resources=/tmp/postgresql.jar \
+  --dependencies=java.se,jakarta.transaction.api
+
+# 2) Registrar el JDBC driver (nombre simbólico "postgresql")
+/subsystem=datasources/jdbc-driver=postgresql:add( \
+  driver-name="postgresql", \
+  driver-module-name="org.postgresql", \
+  driver-class-name="org.postgresql.Driver", \
+  driver-xa-datasource-class-name="org.postgresql.xa.PGXADataSource" \
+)
+
+# 3) Crear el DataSource "AppDS"
+data-source add \
+  --name=AppDS \
+  --jndi-name=java:/jdbc/AppDS \
+  --driver-name=postgresql \
+  --connection-url="jdbc:postgresql://${env.DB_HOST:postgres}:${env.DB_PORT:5432}/${env.DB_NAME:postgres}?ApplicationName=app&tcpKeepAlive=true&connectTimeout=5&socketTimeout=240&loginTimeout=10" \
+  --user-name="${env.DB_USER:postgres}" \
+  --password="${env.DB_PASSWORD:postgres}" \
+  --min-pool-size=5 \
+  --max-pool-size=20 \
+  --use-ccm=true \
+  --enabled=true \
+  --statistics-enabled=true \
+  --blocking-timeout-wait-millis=30000 \
+  --idle-timeout-minutes=10 \
+  --validate-on-match=false \
+  --background-validation=true \
+  --background-validation-millis=30000 \
+  --allocation-retry=3 \
+  --valid-connection-checker-class-name=org.jboss.jca.adapters.jdbc.extensions.postgres.PostgreSQLValidConnectionChecker \
+  --exception-sorter-class-name=org.jboss.jca.adapters.jdbc.extensions.postgres.PostgreSQLExceptionSorter
+
+# 4) Alias opcional "corto" hacia el DS real (solo si tu app busca java:/app)
+/subsystem=naming/binding="java:/app":add( \
+  binding-type=lookup, \
+  lookup="java:/jdbc/AppDS" \
+)
+
+# 5) Diagnóstico rápido (descomenta si quieres validar en el embebido)
+#/subsystem=datasources/data-source=AppDS:test-connection-in-pool
+#/subsystem=datasources/data-source=AppDS:read-resource(include-runtime=true,recursive=true)
+#/subsystem=naming:jndi-view
+
+# 6) Salir del embebido
+stop-embedded-server

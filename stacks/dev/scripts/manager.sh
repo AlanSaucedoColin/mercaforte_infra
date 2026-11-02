@@ -21,7 +21,7 @@ initialize() {
 }
 
 start() {
-  docker compose -f compose.yml up -d --wait postgres
+  docker compose -f compose.yml up -d --wait
 }
 
 stop() {
@@ -29,10 +29,17 @@ stop() {
 }
 
 remove_data() {
-  sudo rm -rf -- "$data_directory"
+  if [[ -L "$postgres_data_directory" ]]; then
+    printf 'No se borrarán datos: data/postgres es un enlace simbólico.\n' >&2
+    return 1
+  fi
+
+  if [[ -d "$postgres_data_directory" ]]; then
+    sudo find "$postgres_data_directory" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+  fi
 }
 
-printf '1) Inicializar\n2) Iniciar\n3) Detener\n4) Eliminar (borra toda la carpeta data)\n5) Reinicializar (detiene, borra data, inicializa e inicia)\n'
+printf '1) Inicializar\n2) Iniciar\n3) Detener\n4) Eliminar (borra solo el contenido de data/postgres)\n5) Reinicializar (detiene, vacía data/postgres, inicializa e inicia)\n'
 read -r -p 'Selecciona una opción: ' selected_option
 
 case "$selected_option" in

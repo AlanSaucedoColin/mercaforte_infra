@@ -1,14 +1,14 @@
 cliArgs:
   geometry: true
   planmode: false
-  threads: 4
+  threads: 2
   explore: 5
   limit: '1mb'
   logdir: '/conf'
   logsize: '100M'
   maxlocations: 1000
   maxvehicles: 200
-  override: true
+  override: false
   path: ''
   port: 3000
   router: 'osrm'

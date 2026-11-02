@@ -1,4 +1,49 @@
 services:
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:v6.0.0
+    restart: unless-stopped
+    cpus: 1.0
+    mem_limit: 1g
+    command: [ "osrm-routed", "--algorithm", "mld", "--threads", "1", "--max-table-size", "1400", "--max-viaroute-size", "1002", "/data/morelos.osrm" ]
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - ./data/osrm:/data
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "-O", "/dev/null", "-T", "3", "http://127.0.0.1:5000/nearest/v1/driving/-99.2216,18.9242" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  vroom:
+    image: ghcr.io/vroom-project/vroom-docker:v1.15.0
+    restart: unless-stopped
+    cpus: 2.0
+    mem_limit: 1g
+    environment:
+      VROOM_ROUTER: osrm
+      VROOM_LOG: /conf
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./data/vroom:/conf
+      - type: bind
+        source: ./configs/vroom/config.yml
+        target: /conf/config.yml
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "--silent", "--max-time", "5", "http://127.0.0.1:3000/health" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    depends_on:
+      osrm:
+        condition: service_healthy
+
   postgres:
     image: postgres:15
     container_name: postgres
@@ -11,11 +56,13 @@ services:
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mercaforte -d mercaforte"]
+      test: [ "CMD-SHELL", "pg_isready -U mercaforte -d mercaforte" ]
       interval: 5s
       timeout: 5s
       retries: 10
-
+    depends_on:
+      vroom:
+        condition: service_healthy
 
 networks:
   default:
