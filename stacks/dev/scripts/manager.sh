@@ -7,6 +7,32 @@ postgres_data_directory="$data_directory/postgres"
 
 cd -- "$development_stack_directory"
 
+configure_routing_token() {
+  local routing_manager_token="${ROUTING_MANAGER_TOKEN:-}"
+  local routing_token_file="$data_directory/routing-manager.token"
+  local backend_environment_file="$development_stack_directory/../../../mercaforte_back/.env"
+
+  # Reuse the backend secret so both local services authenticate with the same value.
+  if [[ -z "$routing_manager_token" && -f "$backend_environment_file" ]]; then
+    routing_manager_token="$(sed -n 's/^[[:space:]]*ROUTING_MANAGER_TOKEN[[:space:]]*=[[:space:]]*//p' "$backend_environment_file" | tail -n 1)"
+  fi
+  if [[ -z "$routing_manager_token" && -s "$routing_token_file" ]]; then
+    routing_manager_token="$(cat -- "$routing_token_file")"
+  fi
+  if [[ -z "$routing_manager_token" ]]; then
+    mkdir -p -- "$data_directory"
+    (umask 077; openssl rand -hex 32 > "$routing_token_file")
+    routing_manager_token="$(cat -- "$routing_token_file")"
+  fi
+  if [[ ${#routing_manager_token} -lt 24 ]]; then
+    printf 'ROUTING_MANAGER_TOKEN debe contener al menos 24 caracteres.\n' >&2
+    return 1
+  fi
+  export ROUTING_MANAGER_TOKEN="$routing_manager_token"
+}
+
+configure_routing_token
+
 initialize() {
   mkdir -p -- "$postgres_data_directory"
 
