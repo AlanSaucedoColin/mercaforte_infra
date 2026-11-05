@@ -2,7 +2,7 @@
 
 El contenedor conserva OSRM 6.0.0 y MLD. El coordinador sirve el protocolo OSRM en 5000 y lo reenvia a
 osrm-routed, que escucha exclusivamente dentro del contenedor en 127.0.0.1:5002. VROOM sigue usando osrm:5000.
-La API interna GET/PUT /active-blocks escucha en 5001; Compose publica ese puerto solo en 127.0.0.1.
+La API interna GET/PUT /active-blocks y GET /elevation/tiles/{z}/{x}/{y}.png escucha en 5001; Compose publica ese puerto solo en 127.0.0.1.
 Exige X-Routing-Token con ROUTING_MANAGER_TOKEN, un secreto de al menos 24 caracteres compartido con el backend.
 Sin token valido no se inicia el coordinador. La API interna nunca recibe JWT de operadores.
 
@@ -58,5 +58,20 @@ Los GeoTIFF se leen de /data/elevation (o ROUTING_ELEVATION_ROOT). elevation.py 
 se precalculan sobre el indice y no modifican velocidades o pesos. La huella de elevaciones queda en routing-catalog.json.
 NoData o fuera de cobertura producen NULL; no se inventan ceros. Un error de enriquecimiento conserva el ultimo calculo.
 Los contratos publicos estan exclusivamente en la coleccion Postman Routing del backend.
+
+## Capa visual de alturas
+
+El coordinador incorpora elevation_tiles.py y reutiliza los mismos GeoTIFF de ROUTING_ELEVATION_ROOT sin alterarlos.
+GDAL crea en memoria un mosaico VRT EPSG:4326, reproyecta cada tile XYZ a EPSG:3857 y codifica PNG RGBA de 256x256.
+La paleta es fija por altura, con transparencia para NoData o fuera de cobertura; el contrato y colores se documentan
+exclusivamente en Postman Routing. No se agrega un servicio de mapas ni una tabla o cache persistente.
+
+El acceso GDAL de esta capa se serializa y la cache LRU conserva hasta 128 imagenes por proceso. El limite global de
+cache de bloques GDAL es 64 MB. Una firma de rutas, tamanos y fechas de modificacion invalida el mosaico y los tiles
+si se sustituyen las fuentes. Los GeoTIFF se abren en modo lectura y los temporales permanecen en /vsimem.
+La capa no espera la preparacion del catalogo SQL o del grafo y no interviene en el guardado de cierres.
+
+Para activar este codigo es necesario reconstruir la imagen OSRM derivada y desplegar el backend actualizado;
+reiniciar solo el contenedor existente no incorpora el nuevo helper. Esta edicion no realiza esa activacion.
 
 Estos archivos solo preparan la siguiente activacion autorizada. Editarlos no compila, construye, migra ni arranca servicios.

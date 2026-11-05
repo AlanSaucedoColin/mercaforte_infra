@@ -9,6 +9,6 @@ RUN apk add --no-cache \
     && CMAKE_BUILD_PARALLEL_LEVEL=1 /opt/routing-venv/bin/python -m pip install --no-cache-dir osmium==4.1.1 \
     && apk del .osmium-build-deps
 
-COPY coordinator.py elevation.py /opt/routing/
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+COPY coordinator.py elevation.py elevation_tiles.py /opt/routing/
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 GDAL_CACHEMAX=64
 ENTRYPOINT ["/opt/routing-venv/bin/python", "/opt/routing/coordinator.py"]

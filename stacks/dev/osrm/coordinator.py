@@ -24,6 +24,7 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from elevation import ElevationSampler
+from elevation_tiles import ElevationTiles
 
 DATA = Path(os.environ.get("ROUTING_DATA_ROOT", "/data")).resolve()
 PBF = Path(os.environ.get("ROUTING_PBF", "/data/morelos.osm.pbf")).resolve()
@@ -172,6 +173,9 @@ class Coordinator:
         self.proxy_requests = 0
         self.condition = threading.Condition(threading.RLock())
         self.save_lock = threading.Lock()
+        self.elevation_tiles = ElevationTiles(
+            os.environ.get("ROUTING_ELEVATION_ROOT", str(DATA / "elevation"))
+        )
         self.token = os.environ.get("ROUTING_MANAGER_TOKEN", "")
         if len(self.token) < 24:
             raise ValueError("ROUTING_MANAGER_TOKEN must contain at least 24 characters")
@@ -693,12 +697,41 @@ class JsonHandler(BaseHTTPRequestHandler):
             self.close_connection = True
 
 
+    def png_response(self, payload):
+        self.send_response(200)
+        self.send_header("Content-Type", "image/png")
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Cache-Control", "private, max-age=300")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        try:
+            self.wfile.write(payload)
+        except OSError:
+            self.close_connection = True
+
+
 class ManagementHandler(JsonHandler):
     def handle_request(self):
         controller = self.server.controller
         if not hmac.compare_digest(self.headers.get("X-Routing-Token", "").encode(), controller.token.encode()):
             self.close_connection = True
             self.json_response(403, {"code": "FORBIDDEN", "detail": "Invalid coordinator credentials"})
+            return
+        tile = re.fullmatch(r"/elevation/tiles/([0-9]{1,2})/([0-9]{1,7})/([0-9]{1,7})\.png", self.path)
+        if tile is not None and self.command == "GET":
+            zoom, x, y = map(int, tile.groups())
+            if not 0 <= zoom <= 16 or not 0 <= x < (1 << zoom) or not 0 <= y < (1 << zoom):
+                self.json_response(400, {"code": "VALIDATION_ERROR", "detail": "Invalid XYZ tile coordinates"})
+                return
+            try:
+                self.png_response(controller.elevation_tiles.tile(zoom, x, y))
+            except FileNotFoundError:
+                self.json_response(503, {"code": "ROUTING_ELEVATION_NOT_READY",
+                                         "detail": "The local elevation rasters are not available"})
+            except Exception as exception:
+                LOG.warning("Elevation tile unavailable: %s", type(exception).__name__)
+                self.json_response(503, {"code": "ROUTING_ELEVATION_UNAVAILABLE",
+                                         "detail": "The elevation layer is temporarily unavailable"})
             return
         if self.path != "/active-blocks":
             self.json_response(404, {"code": "NOT_FOUND", "detail": "Unknown coordinator operation"})
