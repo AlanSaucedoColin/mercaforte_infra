@@ -14,23 +14,26 @@ o reiniciar la base operativa. El proveedor de datos es Protomaps/OpenStreetMap;
 
 ## Cobertura y recursos
 
-Unión de los límites OSM de **Cuernavaca, Huitzilac, Tepoztlán, Emiliano Zapata, Jiutepec, Yautepec, Temixco y
-Xochitepec**, intersectada con el estado de Morelos. No se agrega margen externo. `coverage.geojson` y el
-manifiesto conservan este polígono; sus límites rectangulares se usan únicamente como encuadre máximo.
+Cuadrado continuo de **50 × 50 km**, centrado en **18.860124, -99.185444**, con 25 km desde el centro hacia
+cada dirección cardinal. Se calculan sus límites con GeographicLib/WGS84 y se registran `center`, `sideMeters`
+y `bounds` en el manifiesto. No se consultan ni aplican límites municipales o estatales.
 
-Seleccionar teselas con `pmtiles extract --region` no elimina las ciudades vecinas contenidas en sus zooms
-generales. Por eso `clip_map.py` también recorta las geometrías de cada tesela MVT y elimina los puntos externos.
-Se verifica el contenido completo del archivo, incluidos zooms bajos, con tolerancia de una unidad MVT por
-redondeo. Toluca y Ciudad de México no se conservan como lugares del mapa. El aviso de cobertura de la app
-consulta el polígono municipal y la cámara queda limitada al encuadre regional, con zoom mínimo 9.
+La dimensión se eligió a partir de la captura de referencia: una escala de 5 km en unos 146 píxeles de una
+imagen de 720 píxeles de ancho equivale a unos 25 km de ancho visible y unos 43 km de alto de mapa. El cuadrado
+de 50 km cubre ese encuadre con margen; el número de la barra de escala no representa el lado ni el radio.
+
+Seleccionar teselas con `pmtiles extract --bbox` también incluye geometrías vecinas en zooms generales.
+`clip_map.py` elimina únicamente lo que cae fuera del cuadrado. Se verifica el contenido completo del archivo,
+incluidos zooms bajos, con tolerancia de una unidad MVT por redondeo. La cámara queda limitada al encuadre
+regional, con zoom mínimo 9. Coatetelco y otras zonas antes excluidas por los polígonos se muestran completas.
 
 Los datos llegan hasta zoom 15 y la cámara hasta 19 por ampliación de las teselas existentes; no aparecen
-detalles nuevos al ampliar por encima de 15. Fuera del polígono solo permanecen las capas operativas y el fondo,
+detalles nuevos al ampliar por encima de 15. Fuera del cuadrado solo permanecen las capas operativas y el fondo,
 sin intentar cargar cartografía remota.
 
 El paquete contiene el PMTiles, estilo, sprites 1x/2x y los 256 bloques BMP de las tres fuentes Noto Sans usadas,
 incluidos acentos y números de marcadores. El manifiesto registra fecha de datos, cobertura y SHA-256 de cada
-archivo. `municipalities.osm.json` conserva las relaciones y límites devueltos por Overpass.
+archivo. No se empaquetan archivos de límites municipales ni máscaras de polígonos.
 
 ## Verificar y regenerar
 
@@ -50,15 +53,14 @@ python3 -m venv tools/maps/.venv
 tools/maps/.venv/bin/pip install -r tools/maps/requirements.txt
 tools/maps/.venv/bin/python -m unittest discover -s tools/maps -p 'test_clip_map.py' -v
 PMTILES=/ruta/al/ejecutable/pmtiles tools/maps/.venv/bin/python tools/maps/build-map.py
-# Para actualizar los límites administrativos además de los datos:
-tools/maps/.venv/bin/python tools/maps/build-map.py --pmtiles /ruta/al/ejecutable/pmtiles --refresh-boundaries
 ```
 
 El resultado se publica en `assets/maps/morelos-centro/` de la app de destino. El generador verifica la descarga
 del paquete de estilos, fija la revisión de sus assets y usa un directorio
 temporal: un fallo de descarga o verificación no reemplaza el mapa anterior. No hace falta instalar dependencias
 cartográficas nuevas en el runtime JS. Para una actualización, cambia la fecha/URL y versión de datos en
-`tools/maps/map-config.json`, incrementa `packageVersion` y regenera. Protomaps retiene un historial limitado de snapshots
+`tools/maps/map-config.json`, incrementa `packageVersion` y regenera. Para cambiar la zona, ajusta `center`
+y `sideMeters`. Protomaps retiene un historial limitado de snapshots
 diarios; conserva el paquete generado en el repositorio y utiliza un snapshot disponible al actualizar.
 
 El plugin `withOfflineMapAssets` valida y copia el paquete al ejecutar Expo prebuild y añade `noCompress` para
@@ -82,8 +84,8 @@ python3 tools/maps/verify-apk.py ../mercaforte_app/android/app/build/outputs/apk
 ## Prueba móvil
 
 Comprobar el mapa con un APK que incluya JavaScript, sin Metro y en modo avión, después de cerrar y abrir la app.
-Verificar calles y nombres en los ocho municipios, números/selección de tiendas, recorrido y aviso fuera de la
-cobertura. Conservar SQLite, sesión y pendientes; no usar `pm clear` ni desinstalar para hacer esta prueba.
+Verificar calles y nombres dentro del cuadrado, números/selección de tiendas y recorrido. Conservar SQLite,
+sesión y pendientes; no usar `pm clear` ni desinstalar para hacer esta prueba.
 No publicar el APK de validación firmado con la clave debug como una distribución de producción.
 
 La prueba nativa reproducible no necesita sesión ni bootstrap:
@@ -94,8 +96,9 @@ python3 tools/maps/android-smoke.py --apk ../mercaforte_app/android/app/build/ou
 
 Requiere el JDK 17, SDK Android 36/build-tools 36.0.0 y el AAR 13.7.1 ya descargado por Gradle. Instala el APK
 indicado con `adb install -r`, compila una instrumentación temporal firmada con la clave debug del proyecto,
-activa modo avión y renderiza las ocho cabeceras usando los assets del APK. También comprueba que Toluca y CDMX
-se rendericen vacías. Conserva capturas cartográficas en la caché `offline-map-smoke` para inspección visual. Al salir
+activa modo avión y renderiza diez localidades interiores y una vista completa del cuadrado usando los assets
+del APK. También comprueba que Toluca y CDMX se rendericen vacías. Conserva capturas cartográficas en la caché
+`offline-map-smoke` para inspección visual. Al salir
 restaura la conectividad previa y desinstala la instrumentación. No inicia sesión ni descarga rutas.
 
 Para el APK autónomo de validación, la configuración HTTP del desarrollo habitual no es válida en el bundle
@@ -103,19 +106,23 @@ release. En la comprobación de esta entrega se utilizó `EXPO_PUBLIC_API_BASE_U
 solo para probar sin red y sin acceder a un backend externo. Ese APK es de validación; la versión dev instalada
 al terminar conserva `.env.local` y su backend HTTP local. Los builds de distribución deben usar su URL HTTPS real.
 
-### Comprobación inicial del 5 de noviembre de 2026 (paquete 2026.11.05.1)
+### Comprobación del 5 de noviembre de 2026 (paquete 2026.11.05.3)
 
-- Samsung SM_S918B, Android 16: MapLibre Native 13.7.1 lee PMTiles directamente desde los assets, sin extracción.
-- Paquete completo: **19.28 MB**, incluido el manifiesto y 780 recursos verificados; cartografía PMTiles: **7.71 MB**.
-- APK arm64 autónomo de validación: **65.35 MB**; APK de desarrollo instalado: **95.58 MB**. Tamaños decimales.
-- Cuatro pruebas Node aprobadas, verificación SHA-256 del paquete y de su copia nativa, y comprobación de todos
-  los archivos dentro del APK. PMTiles está almacenado sin compresión ZIP.
-- Las seis cabeceras se renderizaron en modo avión mediante instrumentación; se inspeccionaron las imágenes,
-  incluidos calles, nombres, acentos e iconos.
-- Después de la instalación limpia solicitada, el usuario inició sesión y descargó su jornada. Se comprobaron
-  sus 16 tiendas y recorrido; la selección de una tienda abrió su ficha en modo avión.
-- El APK autónomo abrió la jornada y el mapa en modo avión, sin reenvío a Metro, incluyendo un cierre forzado
-  y una segunda apertura. Al terminar se dejó la app dev con la jornada vigente y la conectividad restaurada.
+- Cuadrado continuo de 50 × 50 km, con centro 18.860124, -99.185444; sin recortes municipales.
+- Paquete completo: **18.55 MB** (18,545,432 bytes), incluido el manifiesto y 779 recursos;
+  cartografía PMTiles: **7.00 MB** (7,000,819 bytes). Tamaños decimales.
+- APK arm64 autónomo de validación: **65.98 MB** (65,979,320 bytes); APK de desarrollo instalado:
+  **102.59 MB** (102,591,335 bytes), que también incorpora los cambios actuales del proyecto.
+- Cuatro pruebas Python y cuatro Node aprobadas. Se verificaron las 108,631 geometrías retenidas,
+  los SHA-256 del paquete y sus recursos en el APK. No hay assets cartográficos duplicados;
+  PMTiles está almacenado sin compresión ZIP. Expo prebuild conservó el paquete.
+- Samsung SM_S918B: las diez localidades interiores y una vista completa del cuadrado se renderizaron
+  en modo avión, directamente desde los assets, sin Metro. Se inspeccionó la vista general: cartografía
+  continua, incluidos Coatetelco y Alpuyeca. Toluca y CDMX produjeron imágenes vacías.
+- Se reinstaló la app con `adb install -r`, conservando los datos existentes. Al terminar se restauró
+  la conectividad y se dejó la versión dev abierta mediante `launch-android.sh`, con su backend HTTP local.
+- La interacción con las 16 tiendas, selección y recorrido, y dos aperturas autónomas en modo avión
+  se habían validado con el paquete anterior; esta actualización verificó específicamente la cobertura cuadrada.
 
 La implementación de esta entrega es Android. No incluye satélite, navegación giro a giro, búsqueda de
 direcciones ni cálculo de rutas sin conexión. Las rutas del bootstrap conservan su geometría existente.

@@ -6,44 +6,23 @@ import mapbox_vector_tile
 from pmtiles.reader import MmapSource, Reader, all_tiles
 from pmtiles.tile import Compression, zxy_to_tileid
 from pmtiles.writer import Writer
+from geographiclib.geodesic import Geodesic
 from shapely import make_valid, set_precision
 from shapely.affinity import affine_transform
-from shapely.geometry import LineString, box, mapping, shape
-from shapely.ops import polygonize, transform, unary_union
+from shapely.geometry import box, shape
+from shapely.ops import transform, unary_union
 
 
-def polygon_parts(geometry):
-    if geometry.geom_type == 'Polygon':
-        return [geometry]
-    if geometry.geom_type in ('MultiPolygon', 'GeometryCollection'):
-        return [part for child in geometry.geoms for part in polygon_parts(child)]
-    return []
-
-
-def relation_geometry(relation):
-    def rings(role):
-        lines = []
-        for member in relation['members']:
-            coordinates = member.get('geometry', [])
-            if member.get('role') == role and member['type'] == 'way' and len(coordinates) >= 2:
-                lines.append(LineString([(point['lon'], point['lat']) for point in coordinates]))
-        return unary_union(list(polygonize(unary_union(lines))))
-    outer = rings('outer')
-    if outer.is_empty:
-        raise ValueError(f'No se pudo reconstruir el límite de {relation["tags"].get("name")}')
-    return unary_union(polygon_parts(make_valid(outer.difference(rings('inner')))))
-
-
-def municipal_coverage(boundaries, municipalities):
-    state = [element for element in boundaries['elements'] if element['tags'].get('ISO3166-2') == 'MX-MOR']
-    municipal = [element for element in boundaries['elements'] if element['tags'].get('admin_level') == '6']
-    assert len(state) == 1, 'Falta el límite estatal de Morelos'
-    assert sorted(element['tags']['name'] for element in municipal) == sorted(municipalities), 'Faltan municipios'
-    assert all(element['tags'].get('INEGI:MUNID', '').startswith('17') for element in municipal), 'Municipio fuera de Morelos'
-    region = unary_union([relation_geometry(element) for element in municipal]).intersection(relation_geometry(state[0]))
-    region = unary_union(polygon_parts(make_valid(region)))
-    assert not region.is_empty and region.is_valid
-    return region
+def square_coverage(center, side_meters):
+    """Cuadrado norte/sur/este/oeste con distancias WGS84 medidas desde el centro."""
+    latitude, longitude = center['latitude'], center['longitude']
+    assert -85 < latitude < 85 and -180 < longitude < 180 and 0 < side_meters <= 200000
+    half = side_meters / 2
+    north = Geodesic.WGS84.Direct(latitude, longitude, 0, half)['lat2']
+    south = Geodesic.WGS84.Direct(latitude, longitude, 180, half)['lat2']
+    east = Geodesic.WGS84.Direct(latitude, longitude, 90, half)['lon2']
+    west = Geodesic.WGS84.Direct(latitude, longitude, 270, half)['lon2']
+    return box(west, south, east, north)
 
 
 def world_coordinates(region):
@@ -105,7 +84,7 @@ def clip_tile(data, z, x, y, world_region):
     return encoded, before, after
 
 
-def clip_archive(source, destination, region, municipalities):
+def clip_archive(source, destination, region, definition):
     world_region = world_coordinates(region)
     statistics = {'inputTiles': 0, 'outputTiles': 0, 'inputFeatures': 0, 'retainedFeatures': 0}
     with source.open('rb') as input_file, destination.open('wb') as output_file:
@@ -126,10 +105,11 @@ def clip_archive(source, destination, region, municipalities):
         west, south, east, north = region.bounds
         header.update(min_lon_e7=round(west * 1e7), min_lat_e7=round(south * 1e7),
                       max_lon_e7=round(east * 1e7), max_lat_e7=round(north * 1e7),
-                      center_lon_e7=round((west + east) / 2 * 1e7),
-                      center_lat_e7=round((south + north) / 2 * 1e7), center_zoom=10)
-        metadata['mercaforte:coverage'] = 'municipal-polygons'
-        metadata['mercaforte:municipalities'] = municipalities
+                      center_lon_e7=round(definition['center']['longitude'] * 1e7),
+                      center_lat_e7=round(definition['center']['latitude'] * 1e7), center_zoom=10)
+        metadata['mercaforte:coverage'] = 'square'
+        metadata['mercaforte:center'] = definition['center']
+        metadata['mercaforte:side_meters'] = definition['sideMeters']
         writer.finalize(header, metadata)
     return statistics
 
@@ -150,9 +130,5 @@ def verify_clipped_archive(archive, region):
                     geometry = make_valid(shape(feature['geometry']))
                     assert not geometry.is_empty, f'Geometría vacía: {z}/{x}/{y} {name}'
                     assert regions[extent].covers(geometry), f'Geometría externa: {z}/{x}/{y} {name}'
-                    if name == 'places':
-                        for key in ['name', 'name:es']:
-                            assert str(feature.get('properties', {}).get(key, '')).casefold() not in (
-                                'toluca', 'toluca de lerdo', 'ciudad de méxico', 'mexico city'), 'Ciudad externa en el archivo'
                     count += 1
     return count

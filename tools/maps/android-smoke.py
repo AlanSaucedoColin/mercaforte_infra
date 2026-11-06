@@ -59,7 +59,7 @@ def main(args):
                              'com.mercaforte.offlinetest/com.mercaforte.offlinetest.OfflineMapSmoke'],
                             text=True, capture_output=True, timeout=240)
             print(completed.stdout, flush=True)
-            assert 'OK: ocho municipios' in completed.stdout and 'INSTRUMENTATION_CODE: -1' in completed.stdout
+            assert 'OK: mapa cuadrado continuo' in completed.stdout and 'INSTRUMENTATION_CODE: -1' in completed.stdout
         finally:
             run([*adb, 'shell', 'cmd', 'connectivity', 'airplane-mode',
                  'enable' if original['airplane_mode_on'] == '1' else 'disable'])

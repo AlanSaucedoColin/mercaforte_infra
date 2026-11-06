@@ -11,11 +11,9 @@ import subprocess
 import tarfile
 import tempfile
 import time
-import urllib.parse
 import urllib.request
 import zipfile
-from shapely.geometry import mapping
-from clip_map import municipal_coverage, clip_archive, verify_clipped_archive
+from clip_map import square_coverage, clip_archive, verify_clipped_archive
 
 HERE = Path(__file__).resolve().parent
 ROOT = Path(os.environ.get('MERCAFORTE_APP_DIR', HERE.parents[2] / 'mercaforte_app')).expanduser().resolve()
@@ -37,15 +35,6 @@ def download(url, destination):
             time.sleep(attempt + 1)
 
 
-def get_boundaries(destination):
-    names = '|'.join(CONFIG['municipalities'])
-    query = ('[out:json][timeout:90];area["ISO3166-2"="MX-MOR"]->.a;'
-             'rel(area.a)["boundary"="administrative"]["admin_level"="6"]'
-             f'["name"~"^({names})$"]->.municipalities;'
-             '(.municipalities;rel["ISO3166-2"="MX-MOR"]["boundary"="administrative"]["admin_level"="4"];);out geom;')
-    download('https://overpass-api.de/api/interpreter?' + urllib.parse.urlencode({'data': query}), destination)
-
-
 def build(args):
     if not (ROOT / 'package.json').is_file():
         raise SystemExit('No se encontró mercaforte_app; configura MERCAFORTE_APP_DIR con su ruta.')
@@ -57,24 +46,13 @@ def build(args):
         temp = Path(temp)
         output = temp / 'package'
         output.mkdir()
-        boundaries_path = output / 'municipalities.osm.json'
-        if args.boundaries:
-            shutil.copyfile(args.boundaries, boundaries_path)
-        elif args.refresh_boundaries or not (OUTPUT / boundaries_path.name).is_file():
-            get_boundaries(boundaries_path)
-        else:
-            shutil.copyfile(OUTPUT / boundaries_path.name, boundaries_path)
-        boundaries = json.loads(boundaries_path.read_text())
-        region = municipal_coverage(boundaries, CONFIG['municipalities'])
+        region = square_coverage(CONFIG['center'], CONFIG['sideMeters'])
         bounds = list(region.bounds)
-        coverage = {'type': 'Feature', 'properties': {'municipalities': CONFIG['municipalities'], 'state': 'Morelos'},
-                    'geometry': mapping(region)}
-        (output / 'coverage.geojson').write_text(json.dumps(coverage, ensure_ascii=False, separators=(',', ':')) + '\n')
         print('Cobertura:', bounds, flush=True)
         extracted = temp / 'unclipped.pmtiles'
         subprocess.run([pmtiles, 'extract', CONFIG['sourceUrl'], str(extracted),
-                        '--region=' + str(output / 'coverage.geojson'), '--maxzoom=15', '--download-threads=4'], check=True)
-        clipping = clip_archive(extracted, output / 'map.pmtiles', region, CONFIG['municipalities'])
+                        '--bbox=' + ','.join(map(str, bounds)), '--maxzoom=15', '--download-threads=4'], check=True)
+        clipping = clip_archive(extracted, output / 'map.pmtiles', region, CONFIG)
         print('Recorte de geometrías:', clipping, flush=True)
         clipping['verifiedFeatures'] = verify_clipped_archive(output / 'map.pmtiles', region)
         subprocess.run([pmtiles, 'verify', str(output / 'map.pmtiles')], check=True)
@@ -120,13 +98,12 @@ def build(args):
                 files[file.relative_to(output).as_posix()] = {'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}
         manifest = {
             'schemaVersion': 1, 'id': CONFIG['id'], 'version': CONFIG['packageVersion'],
-            'bounds': bounds, 'municipalities': CONFIG['municipalities'], 'marginMeters': CONFIG['marginMeters'],
-            'coverageMode': CONFIG['coverageMode'], 'coverageFile': 'coverage.geojson', 'coverage': coverage, 'clipping': clipping,
+            'bounds': bounds, 'center': CONFIG['center'], 'sideMeters': CONFIG['sideMeters'],
+            'coverageMode': CONFIG['coverageMode'], 'clipping': clipping,
             'minDataZoom': 0, 'maxDataZoom': 15, 'maxCameraZoom': 19,
             'minCameraZoom': CONFIG['minCameraZoom'],
             'sourceUrl': CONFIG['sourceUrl'], 'tilesetVersion': metadata['version'],
             'dataDate': metadata['planetiler:osm:osmosisreplicationtime'],
-            'boundaryDate': boundaries['osm3s']['timestamp_osm_base'],
             'stylePackageVersion': version, 'assetsRevision': revision,
             'generatedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
             'totalResourceBytes': sum(f['bytes'] for f in files.values()), 'files': files,
@@ -155,6 +132,4 @@ def build(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pmtiles', help='Ejecutable go-pmtiles 1.31.2')
-    parser.add_argument('--refresh-boundaries', action='store_true', help='Volver a consultar OpenStreetMap')
-    parser.add_argument('--boundaries', type=Path, help='Respuesta Overpass con geometrías municipales y del estado de Morelos')
     build(parser.parse_args())

@@ -3,10 +3,22 @@ import unittest
 import mapbox_vector_tile
 from shapely.geometry import Point, LineString, box, shape
 
-from clip_map import clip_tile, world_coordinates
+from clip_map import clip_tile, world_coordinates, square_coverage
+from geographiclib.geodesic import Geodesic
 
 
 class ClipMapTests(unittest.TestCase):
+    def test_square_matches_center_and_fifty_kilometer_side(self):
+        center = {'latitude': 18.860124, 'longitude': -99.185444}
+        region = square_coverage(center, 50000)
+        west, south, east, north = region.bounds
+        self.assertAlmostEqual((west + east) / 2, center['longitude'], places=10)
+        self.assertAlmostEqual(Geodesic.WGS84.Inverse(south, center['longitude'], north, center['longitude'])['s12'], 50000, places=5)
+        self.assertAlmostEqual(Geodesic.WGS84.Inverse(center['latitude'], west, center['latitude'], east)['s12'], 50000, delta=.2)
+        self.assertEqual(len(region.exterior.coords), 5)
+        self.assertFalse(region.interiors)
+        self.assertTrue(region.covers(Point(-99.326, 18.730)), 'Debe rellenar Coatetelco, antes excluido por municipio')
+
     def test_general_tile_drops_toluca_and_mexico_city(self):
         features = []
         for name, coordinate in [('Cuernavaca', (-99.234, 18.924)), ('Toluca', (-99.656, 19.283)),
