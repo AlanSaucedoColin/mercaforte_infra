@@ -24,7 +24,7 @@ function loadModule(filename, dependencies) {
   return exports;
 }
 
-test('el paquete real contiene cartografía, fuentes, sprites y los seis municipios', () => {
+test('el paquete real contiene cartografía, fuentes, sprites y los ocho municipios', () => {
   const manifest = verifyMap();
   assert.equal(manifest.files['map.pmtiles'].bytes > 0, true);
   assert.equal(manifest.files['fonts/Noto Sans Regular/0-255.pbf'].bytes > 0, true);
@@ -60,7 +60,7 @@ test('la compilación rechaza archivos ausentes, dañados y estilos que requiere
   assert.throws(() => verifyMap(temp), /glyphs|asset:\/\/maps/);
 });
 
-test('las seis cabeceras están cubiertas y una ubicación externa no se confunde con cobertura local', () => {
+test('las ocho cabeceras están cubiertas; Toluca, CDMX y municipios no incluidos quedan fuera', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(DEFAULT_DIRECTORY, 'manifest.json')));
   const storage = loadModule('src/storage/offlineMapStorage.js', {
     'react-native': { Platform: { OS: 'android' } },
@@ -72,12 +72,21 @@ test('las seis cabeceras están cubiertas y una ubicación externa no se confund
   const definition = service.getOfflineMapDefinition();
   assert.equal(definition.mapStyle, 'asset://maps/morelos-centro/style.json');
   for (const center of [[-99.234, 18.924], [-99.177, 18.884], [-99.067, 18.882],
-    [-99.185, 18.840], [-99.226, 18.852], [-99.230, 18.781]]) {
-    assert.equal(service.isPositionInOfflineMap(center, definition.bounds), true);
+    [-99.185, 18.840], [-99.226, 18.852], [-99.230, 18.781], [-99.268, 19.029], [-99.101, 18.986]]) {
+    assert.equal(service.isPositionInOfflineMap(center, definition.bounds, definition.coverage), true);
   }
-  assert.equal(service.isPositionInOfflineMap([-99.133, 19.433], definition.bounds), false);
+  for (const position of [[-99.133, 19.433], [-99.656, 19.283], [-99.326, 18.730]]) {
+    assert.equal(service.isPositionInOfflineMap(position, definition.bounds, definition.coverage), false);
+  }
   assert.equal(service.isPositionInOfflineMap([null, null], definition.bounds), false);
   assert.equal(service.isPositionInOfflineMap([NaN, 18.9], definition.bounds), false);
   assert.equal(service.isViewportInOfflineMap([-99.25, 18.80, -99.20, 18.90], definition.bounds), true);
   assert.equal(service.isViewportInOfflineMap([-99.50, 18.80, -99.20, 18.90], definition.bounds), false);
+  const polygon = { type: 'Polygon', coordinates: [
+    [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]],
+    [[4, 4], [6, 4], [6, 6], [4, 6], [4, 4]],
+  ] };
+  assert.equal(service.isPositionInOfflineMap([1, 1], [0, 0, 10, 10], polygon), true);
+  assert.equal(service.isPositionInOfflineMap([5, 5], [0, 0, 10, 10], polygon), false);
+  assert.equal(service.isPositionInOfflineMap([0, 1], [0, 0, 10, 10], polygon), true);
 });
