@@ -34,6 +34,7 @@ RUN $JBOSS_HOME/bin/jboss-cli.sh --file=$JBOSS_HOME/init.cli && \
     $JBOSS_HOME/standalone/data
 
 # --- Despliegues ---
+# Copia el contenido local de deployments, incluido ROOT.war, al servidor
 COPY --chown=jboss:jboss --chmod=0755 ./deployments/ ${JBOSS_HOME}/standalone/deployments/
 
 # --- Configuración de Entorno ---

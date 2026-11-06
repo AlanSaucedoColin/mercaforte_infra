@@ -1,3 +1,5 @@
 /stacks/dev/data/
+/stacks/dev/nginx/dist/
+/stacks/dev/.env
 /tools/maps/.venv/
 /tools/maps/__pycache__/

@@ -35,6 +35,7 @@ configure_routing_token() {
 # configure_routing_token
 
 initialize() {
+  printf 'Preparando directorio y permisos de PostgreSQL: %s\n' "$postgres_data_directory"
   mkdir -p -- "$postgres_data_directory"
 
   # Keep the host directories accessible to the user running Docker Desktop.
@@ -48,10 +49,13 @@ initialize() {
 }
 
 start() {
-  docker compose -f compose.yml up -d --wait
+  printf 'Orden de arranque: PostgreSQL -> OSRM -> VROOM -> WildFly -> Nginx\n'
+  printf 'Construyendo imagenes y mostrando los logs de todos los servicios\n'
+  docker compose --progress plain -f compose.yml up --build
 }
 
 stop() {
+  printf 'Deteniendo los servicios del stack\n'
   docker compose -f compose.yml down --remove-orphans
 }
 
@@ -62,6 +66,7 @@ remove_data() {
   fi
 
   if [[ -d "$postgres_data_directory" ]]; then
+    printf 'Eliminando el contenido de PostgreSQL: %s\n' "$postgres_data_directory"
     sudo find "$postgres_data_directory" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
   fi
 }
@@ -73,7 +78,9 @@ reinitialize() {
     sudo rmdir -- "$postgres_data_directory"
   fi
   initialize
-  docker compose -f compose.yml up -d --force-recreate --wait
+  printf 'Orden de arranque: PostgreSQL -> OSRM -> VROOM -> WildFly -> Nginx\n'
+  printf 'Reconstruyendo imagenes, recreando servicios y mostrando todos los logs\n'
+  docker compose --progress plain -f compose.yml up --build --force-recreate
 }
 
 printf '1) Inicializar\n2) Iniciar\n3) Detener\n4) Eliminar (borra solo el contenido de data/postgres)\n5) Reinicializar (baja todo el compose, recrea data/postgres y levanta todo con --force-recreate)\n'

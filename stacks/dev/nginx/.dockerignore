@@ -1,0 +1,6 @@
+**
+!Dockerfile
+!templates/
+!templates/default.conf.template
+!dist/
+!dist/**
