@@ -31,7 +31,8 @@ configure_routing_token() {
   export ROUTING_MANAGER_TOKEN="$routing_manager_token"
 }
 
-configure_routing_token
+# Coordinador de bloqueos pausado; OSRM no necesita el token para servir el mapa
+# configure_routing_token
 
 initialize() {
   mkdir -p -- "$postgres_data_directory"
@@ -65,7 +66,17 @@ remove_data() {
   fi
 }
 
-printf '1) Inicializar\n2) Iniciar\n3) Detener\n4) Eliminar (borra solo el contenido de data/postgres)\n5) Reinicializar (detiene, vacía data/postgres, inicializa e inicia)\n'
+reinitialize() {
+  stop
+  remove_data
+  if [[ -d "$postgres_data_directory" ]]; then
+    sudo rmdir -- "$postgres_data_directory"
+  fi
+  initialize
+  docker compose -f compose.yml up -d --force-recreate --wait
+}
+
+printf '1) Inicializar\n2) Iniciar\n3) Detener\n4) Eliminar (borra solo el contenido de data/postgres)\n5) Reinicializar (baja todo el compose, recrea data/postgres y levanta todo con --force-recreate)\n'
 read -r -p 'Selecciona una opción: ' selected_option
 
 case "$selected_option" in
@@ -83,10 +94,7 @@ case "$selected_option" in
     remove_data
     ;;
   5)
-    stop
-    remove_data
-    initialize
-    start
+    reinitialize
     ;;
   *)
     printf 'Opción inválida. Usa 1, 2, 3, 4 o 5.\n' >&2

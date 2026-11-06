@@ -3,23 +3,15 @@ services:
     build:
       context: ./osrm
     image: mercaforte-osrm-routing:6.0.0
+    # Coordinador de bloqueos pausado; servir el mapa base sin PostgreSQL
+    entrypoint: [ "osrm-routed" ]
+    command: [ "--algorithm", "MLD", "--threads", "2", "--max-table-size", "1400", "/data/morelos.osrm" ]
     restart: unless-stopped
     cpus: 2.0
     mem_limit: 2g
     stop_grace_period: 30s
-    environment:
-      ROUTING_MANAGER_TOKEN: ${ROUTING_MANAGER_TOKEN:?Define a shared routing manager secret of at least 24 characters}
-      ROUTING_DB_HOST: postgres
-      ROUTING_DB_NAME: ${ROUTING_DB_NAME:-mercaforte}
-      ROUTING_DB_USER: ${ROUTING_DB_USER:-mercaforte}
-      ROUTING_DB_PASSWORD: ${ROUTING_DB_PASSWORD:-mercaforte}
-      ROUTING_PREPARE_TIMEOUT: ${ROUTING_PREPARE_TIMEOUT:-900}
-    depends_on:
-      postgres:
-        condition: service_healthy
     ports:
       - "127.0.0.1:5000:5000"
-      - "127.0.0.1:5001:5001"
     volumes:
       - ./data/osrm:/data
     healthcheck:
@@ -27,7 +19,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 30
-      start_period: ${ROUTING_HEALTH_START_PERIOD:-35m}
+      start_period: 10s
 
   vroom:
     image: ghcr.io/vroom-project/vroom-docker:v1.15.0

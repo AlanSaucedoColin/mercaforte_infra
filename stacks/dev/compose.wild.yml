@@ -1,0 +1,20 @@
+services:
+  wildfly:
+    build: ./wildfly
+    container_name: wildfly
+    restart: always
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: mercaforte
+      DB_USER: mercaforte
+      DB_PASSWORD: mercaforte
+    networks:
+      - default
+    ports:
+      - "8080:8080"
+      - "9990:9990"
+
+networks:
+  default:
+    driver: bridge

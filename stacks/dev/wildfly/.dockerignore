@@ -84,3 +84,6 @@ id_rsa
 !deployments/**/*.war
 !deployments/**/*.ear
 !deployments/**/*.jar
+
+# Incluir el driver JDBC local en el contexto de build
+!drivers/postgresql-42.7.8.jar

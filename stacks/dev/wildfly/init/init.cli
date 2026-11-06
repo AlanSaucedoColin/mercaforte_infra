@@ -23,6 +23,7 @@ data-source add \
   --name=AppDS \
   --jndi-name=java:/jdbc/AppDS \
   --driver-name=postgresql \
+  --jta=false \
   --connection-url="jdbc:postgresql://${env.DB_HOST:postgres}:${env.DB_PORT:5432}/${env.DB_NAME:postgres}?ApplicationName=app&tcpKeepAlive=true&connectTimeout=5&socketTimeout=240&loginTimeout=10" \
   --user-name="${env.DB_USER:postgres}" \
   --password="${env.DB_PASSWORD:postgres}" \
