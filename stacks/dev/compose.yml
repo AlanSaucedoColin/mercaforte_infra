@@ -36,8 +36,6 @@ services:
       BUSINESS_TIME_ZONE: America/Mexico_City
       VEHICLE_INSPECTION_STORAGE_ROOT: /var/lib/mercaforte/vehicle-inspections
       WILDFLY_DATASOURCE_JNDI_NAME: java:/jdbc/AppDS
-      ROUTING_MANAGER_URL: http://osrm:5001
-      ROUTING_MANAGER_TOKEN: ${ROUTING_MANAGER_TOKEN}
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_NAME: mercaforte
@@ -81,11 +79,8 @@ services:
       - main
 
   osrm:
-    build:
-      context: ./osrm
-    image: mercaforte-osrm-routing:26.11.0
+    image: ghcr.io/project-osrm/osrm-backend:v26.11.0-debian@sha256:e1929ae2818226284d7ef007329098a30851c11528ab3712bc9c8d68da78278b
     container_name: ${OSRM_CONTAINER_NAME}
-    # Coordinador de bloqueos pausado; servir solo el mapa base
     entrypoint: [ "osrm-routed" ]
     command: [ "--algorithm", "MLD", "--threads", "2", "--max-table-size", "1400", "/data/morelos.osrm" ]
     restart: unless-stopped
@@ -97,7 +92,15 @@ services:
     volumes:
       - ./data/osrm:/data
     healthcheck:
-      test: [ "CMD", "wget", "-q", "-O", "/dev/null", "-T", "3", "http://127.0.0.1:5000/nearest/v1/driving/-99.2216,18.9242" ]
+      test:
+        - CMD
+        - bash
+        - -ec
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/5000;
+          printf 'GET /nearest/v1/driving/-99.2216,18.9242 HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3;
+          IFS= read -r status <&3;
+          [[ "$$status" == *" 200 "* ]]
       interval: 5s
       timeout: 5s
       retries: 30
