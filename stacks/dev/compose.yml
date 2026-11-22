@@ -61,32 +61,6 @@ services:
       - main
 
   # ========================================
-  # Nginx
-  # ========================================
-  nginx:
-    build:
-      context: .
-      dockerfile: nginx/Dockerfile
-    image: mercaforte-nginx:dev
-    container_name: ${NGINX_CONTAINER_NAME}
-    restart: unless-stopped
-    environment:
-      NGINX_API_PREFIX: ${NGINX_API_PREFIX}
-      NGINX_BACKEND_URL: ${NGINX_BACKEND_URL}
-      NGINX_BACKEND_API_PATH: ${NGINX_BACKEND_API_PATH}
-      NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE}
-      NGINX_VROOM_URL: ${NGINX_VROOM_URL}
-      NGINX_VROOM_TIMEOUT: ${NGINX_VROOM_TIMEOUT}
-    expose:
-      - "80"
-    depends_on:
-      wildfly:
-        condition: service_healthy
-        restart: true
-    networks:
-      - main
-
-  # ========================================
   # OSRM
   # ========================================
   osrm:
@@ -109,8 +83,9 @@ services:
       retries: 30
       start_period: 10s
     depends_on:
-      nginx:
-        condition: service_started
+      wildfly:
+        condition: service_healthy
+        restart: true
     networks:
       - main
 
@@ -139,6 +114,33 @@ services:
     depends_on:
       osrm:
         condition: service_healthy
+        restart: true
+    networks:
+      - main
+
+  # ========================================
+  # Nginx
+  # ========================================
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    image: mercaforte-nginx:dev
+    container_name: ${NGINX_CONTAINER_NAME}
+    restart: unless-stopped
+    environment:
+      NGINX_API_PREFIX: ${NGINX_API_PREFIX}
+      NGINX_BACKEND_URL: ${NGINX_BACKEND_URL}
+      NGINX_BACKEND_API_PATH: ${NGINX_BACKEND_API_PATH}
+      NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE}
+      NGINX_VROOM_URL: ${NGINX_VROOM_URL}
+      NGINX_VROOM_TIMEOUT: ${NGINX_VROOM_TIMEOUT}
+    expose:
+      - "80"
+    depends_on:
+      vroom:
+        condition: service_healthy
+        restart: true
     networks:
       - main
 
