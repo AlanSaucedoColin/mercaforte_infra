@@ -34,8 +34,8 @@ RUN $JBOSS_HOME/bin/jboss-cli.sh --file=$JBOSS_HOME/init.cli && \
     $JBOSS_HOME/standalone/data
 
 # --- Despliegues ---
-# Copia los artefactos desde configs/deploys
-COPY --chown=jboss:jboss --chmod=0755 ./configs/deploys/ ${JBOSS_HOME}/standalone/deployments/
+# Copia los artefactos desde config/deploys
+COPY --chown=jboss:jboss --chmod=0755 ./config/deploys/ ${JBOSS_HOME}/standalone/deployments/
 
 # --- Configuración de Entorno ---
 ENV TZ="${TZ}"

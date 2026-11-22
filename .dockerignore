@@ -11,9 +11,9 @@ wildfly/**
 !wildfly/drivers/postgresql-42.7.8.jar
 !wildfly/init/
 !wildfly/init/init.cli
-!configs/
-configs/**
-!configs/deploys/
-!configs/deploys/**
-!configs/dist/
-!configs/dist/**
+!config/
+config/**
+!config/deploys/
+!config/deploys/**
+!config/dist/
+!config/dist/**

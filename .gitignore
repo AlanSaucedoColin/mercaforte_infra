@@ -1,4 +1,5 @@
 /data/postgres/
-/configs/vroom/*.log
+/config/vroom/*.log
 /.env
+/.env.erpnext
 /tools/

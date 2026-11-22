@@ -75,7 +75,7 @@ services:
     expose:
       - "5000"
     volumes:
-      - ./data/osrm:/data
+      - ./config/osrm:/data
     healthcheck:
       test: [ "CMD", "bash", "-ec", 'exec 3<>/dev/tcp/127.0.0.1/5000; printf "GET /nearest/v1/driving/-99.2216,18.9242 HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3; IFS= read -r status <&3; [[ "$$status" == *" 200 "* ]]' ]
       interval: 5s
@@ -104,7 +104,7 @@ services:
     expose:
       - "3000"
     volumes:
-      - ./configs/vroom:/conf
+      - ./config/vroom:/conf
     healthcheck:
       test: [ "CMD", "curl", "--fail", "--silent", "--max-time", "5", "http://127.0.0.1:3000/health" ]
       interval: 5s
