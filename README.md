@@ -1,55 +1,30 @@
 # ERPNext en producción
 
-## 1. Inicialización (una sola vez)
+## 1. Inicializar
 
-Apunta el DNS del dominio al servidor. Deja los puertos TCP `80` y `443` libres y accesibles desde Internet.
-
-Desde la carpeta `erpnext-prod`:
+En el servidor Linux, apunta el DNS del dominio al servidor y permite TCP `80` y `443`. Desde la raíz de `mercaforte_infra`, prepara una copia privada del manager:
 
 ```bash
-docker info >/dev/null
-docker compose version
-cp -n .env.example .env
-chmod 600 .env
-nano .env
+install -m 700 erpnext-manager.sh erpnext-manager.prod.sh  # solo la primera vez
+nano erpnext-manager.prod.sh
 ```
 
-En `.env`, cambia `DB_PASSWORD` por una contraseña fuerte, `LETSENCRYPT_EMAIL` por tu correo y el dominio de ``SITES_RULE=Host(`erp.example.com`)`` por el tuyo.
-
-Define `ERPNEXT_DATA_ROOT` con la ruta absoluta deseada (por defecto `/srv/erpnext`). En el servidor Linux, prepara los directorios:
+Completa al principio `root`, `dominio` (sin `https://`), `correo_letsencrypt`, `password_mariadb` y `password_administrator`. Usa contraseñas de una sola línea.
 
 ```bash
-ROOT=$(docker compose -f compose.yaml config --environment | sed -n 's/^ERPNEXT_DATA_ROOT=//p')
-(
-  set -eu
-  case "$ROOT" in /) exit 1 ;; /*) ;; *) exit 1 ;; esac
-  sudo install -d -o 1000 -g 0 -m 0770 "$ROOT/frappe/sites"
-  for svc in configurator backend frontend websocket queue-short queue-long scheduler; do
-    sudo install -d -o 1000 -g 0 -m 0770 "$ROOT/frappe/logs/$svc"
-  done
-  sudo install -d -o 999 -g 999 -m 0700 "$ROOT/mariadb" "$ROOT/redis-cache" "$ROOT/redis-queue"
-  sudo install -d -o root -g root -m 0700 "$ROOT/traefik"
-)
+./erpnext-manager.prod.sh   # 1) Inicializar
 ```
 
-Si ya hay datos, detén el entorno y copia o restaura los datos en las nuevas rutas antes de arrancar. Cambiar la ruta no migra los datos.
+Esto comprueba Docker y Compose, prepara las carpetas y genera `.env.erpnext`. Si el archivo ya existe, se conserva: verifica que `ERPNEXT_DATA_ROOT`, `SITES_RULE` y `LETSENCRYPT_EMAIL` coincidan con tu configuración. Para crear el sitio, `password_mariadb` del script y `DB_PASSWORD` de `.env.erpnext` deben coincidir con la contraseña de `root` de MariaDB.
 
-## 2. Levantar producción
+La inicialización levanta los servicios, crea el sitio con ERPNext si aún no existe y lo deja en ejecución. Abre `https://TU_DOMINIO` e inicia sesión con `Administrator` y `password_administrator`.
+
+## 2. Iniciar después de una parada
 
 ```bash
-docker compose -p erpnext-prod -f compose.yaml \
-  -f overrides/compose.mariadb.yaml \
-  -f overrides/compose.redis.yaml \
-  -f overrides/compose.https.yaml \
-  -f overrides/compose.bind-mounts.yaml up -d
-docker compose -p erpnext-prod ps -a
+./erpnext-manager.prod.sh   # 2) Iniciar
 ```
 
-Cuando `db` esté `healthy` y `configurator` muestre `Exited (0)`, crea el sitio **solo la primera vez**. Sustituye `erp.example.com` por el dominio de `SITES_RULE`:
+Esta opción solo levanta los servicios del sitio existente.
 
-```bash
-docker compose -p erpnext-prod exec backend bench new-site erp.example.com \
-  --mariadb-user-host-login-scope='%' --install-app erpnext
-```
-
-Cuando lo solicite, introduce `DB_PASSWORD` como contraseña root de MariaDB y elige una contraseña para `Administrator`. Abre `https://TU_DOMINIO` e inicia sesión con `Administrator`.
+**3) Detener** conserva los datos. **4) Purgar** detiene ERPNext y vacía `root`, conservando `.env.erpnext`. Después de purgar, ejecuta **1) Inicializar** para comenzar de nuevo.
