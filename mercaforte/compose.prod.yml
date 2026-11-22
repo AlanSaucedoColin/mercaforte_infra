@@ -1,0 +1,153 @@
+services:
+  # ========================================
+  # PostgreSQL
+  # ========================================
+  postgres:
+    image: postgres:15.20
+    container_name: ${POSTGRES_CONTAINER_NAME}
+    expose:
+      - "5432"
+    environment:
+      - POSTGRES_USER=mercaforte
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=mercaforte
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - main
+
+  # ========================================
+  # WildFly
+  # ========================================
+  wildfly:
+    build:
+      context: .
+      dockerfile: wildfly/Dockerfile
+    container_name: ${WILDFLY_CONTAINER_NAME}
+    restart: always
+    command: [ "/opt/jboss/wildfly/bin/standalone.sh", "-b", "0.0.0.0", "-bmanagement", "0.0.0.0" ]
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: mercaforte-auth
+      JWT_AUDIENCE: mercaforte-api
+      JWT_EXPIRATION_TIME: "23:59:59"
+      BUSINESS_TIME_ZONE: America/Mexico_City
+      VEHICLE_INSPECTION_STORAGE_ROOT: /var/lib/mercaforte/vehicle-inspections
+      WILDFLY_DATASOURCE_JNDI_NAME: java:/jdbc/AppDS
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: mercaforte
+      DB_USER: mercaforte
+      DB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - type: bind
+        source: ${VEHICLE_INSPECTION_STORAGE_ROOT}
+        target: /var/lib/mercaforte/vehicle-inspections
+        bind:
+          create_host_path: false
+    expose:
+      - "8080"
+      - "9990"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - main
+
+  # ========================================
+  # OSRM
+  # ========================================
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:v26.11.0-debian@sha256:e1929ae2818226284d7ef007329098a30851c11528ab3712bc9c8d68da78278b
+    container_name: ${OSRM_CONTAINER_NAME}
+    entrypoint: [ "osrm-routed" ]
+    command: [ "--algorithm", "MLD", "--threads", "2", "--max-table-size", "1400", "/data/morelos.osrm" ]
+    restart: unless-stopped
+    cpus: 2.0
+    mem_limit: 2g
+    stop_grace_period: 30s
+    expose:
+      - "5000"
+    volumes:
+      - ./config/osrm:/data
+    healthcheck:
+      test: [ "CMD", "bash", "-ec", 'exec 3<>/dev/tcp/127.0.0.1/5000; printf "GET /nearest/v1/driving/-99.2216,18.9242 HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3; IFS= read -r status <&3; [[ "$$status" == *" 200 "* ]]' ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    depends_on:
+      wildfly:
+        condition: service_healthy
+        restart: true
+    networks:
+      - main
+
+  # ========================================
+  # Vroom
+  # ========================================
+  vroom:
+    image: ghcr.io/vroom-project/vroom-docker:v1.15.0
+    container_name: ${VROOM_CONTAINER_NAME}
+    restart: unless-stopped
+    cpus: 2.0
+    mem_limit: 1g
+    environment:
+      VROOM_ROUTER: osrm
+      VROOM_LOG: /conf
+    expose:
+      - "3000"
+    volumes:
+      - ./config/vroom:/conf
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "--silent", "--max-time", "5", "http://127.0.0.1:3000/health" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    depends_on:
+      osrm:
+        condition: service_healthy
+        restart: true
+    networks:
+      - main
+
+  # ========================================
+  # Nginx
+  # ========================================
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    image: mercaforte-nginx:dev
+    container_name: ${NGINX_CONTAINER_NAME}
+    restart: unless-stopped
+    environment:
+      NGINX_API_PREFIX: ${NGINX_API_PREFIX}
+      NGINX_BACKEND_URL: ${NGINX_BACKEND_URL}
+      NGINX_BACKEND_API_PATH: ${NGINX_BACKEND_API_PATH}
+      NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE}
+      NGINX_VROOM_URL: ${NGINX_VROOM_URL}
+      NGINX_VROOM_TIMEOUT: ${NGINX_VROOM_TIMEOUT}
+    expose:
+      - "80"
+    depends_on:
+      vroom:
+        condition: service_healthy
+        restart: true
+    networks:
+      - main
+
+networks:
+  main:
+    external: true
+    name: main
+
+volumes:
+  postgres-data:

@@ -1,4 +1,3 @@
-/mercaforte/data/postgres/
 /mercaforte/config/vroom/*.log
 /mercaforte/.env
 /erpnext/.env
