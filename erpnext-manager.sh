@@ -1,16 +1,33 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Carpeta dedicada a ERPNext. La opción 4 borra todo su contenido.
-root="/var/lib/mercaforte/erpnext"
-dominio=''
+env='dev' # dev o prod
+
+dominio='localhost'
 correo_letsencrypt=''
-password_mariadb=''
-password_administrator=''
+password_mariadb='MariaDB-Demo-123!'
+password_administrator='Admin-Demo-123!'
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
-export COMPOSE_PROJECT_NAME=erpnext-prod
-export COMPOSE_FILE=compose.erpnext.yaml:erpnext/compose.mariadb.yaml:erpnext/compose.redis.yaml:erpnext/compose.https.yaml:erpnext/compose.bind-mounts.yaml
+export COMPOSE_PROJECT_NAME="erpnext-$env"
+if [[ "$env" == 'dev' ]]; then
+  root="$HOME/erpnext-demo"
+  frappe_owner=$(id -u)
+  db_owner=$frappe_owner
+  frappe_group=$(id -g)
+  db_group=$frappe_group
+  db_mode=0770
+  export COMPOSE_FILE=compose.erpnext.yaml:erpnext/compose.mariadb.yaml:erpnext/compose.mariadb-dev.yaml:erpnext/compose.redis.yaml:erpnext/compose.noproxy.yaml:erpnext/compose.bind-mounts.yaml
+else
+  root="/var/lib/mercaforte/erpnext"
+  frappe_owner=1000
+  db_owner=999
+  frappe_group=0
+  db_group=999
+  db_mode=0700
+  export COMPOSE_FILE=compose.erpnext.yaml:erpnext/compose.mariadb.yaml:erpnext/compose.redis.yaml:erpnext/compose.https.yaml:erpnext/compose.bind-mounts.yaml
+fi
+export ERPNEXT_DATA_ROOT="$root"
 printf '%s\n' '1) Inicializar' '2) Iniciar' '3) Detener' '4) Detener y purgar los datos'
 read -r -p 'Selecciona una opción: ' option
 
@@ -34,7 +51,7 @@ case "$option" in
     fi
     chmod 600 .env.erpnext
 
-    sudo install -d -o 1000 -g 0 -m 0770 -- \
+    sudo install -d -o "$frappe_owner" -g "$frappe_group" -m 0770 -- \
       "$root/frappe/sites" \
       "$root/frappe/logs/configurator" \
       "$root/frappe/logs/backend" \
@@ -44,21 +61,21 @@ case "$option" in
       "$root/frappe/logs/queue-long" \
       "$root/frappe/logs/scheduler"
 
-    sudo install -d -o 999 -g 999 -m 0700 -- \
+    sudo install -d -o "$db_owner" -g "$db_group" -m "$db_mode" -- \
       "$root/mariadb" "$root/redis-cache" "$root/redis-queue"
 
-    sudo install -d -o 0 -g 0 -m 0700 -- "$root/traefik"
+    if [[ "$env" != 'dev' ]]; then
+      sudo install -d -o 0 -g 0 -m 0700 -- "$root/traefik"
+    fi
 
     docker compose --env-file .env.erpnext up -d
-    docker compose --env-file .env.erpnext exec -T backend \
-      bash -se -- "$dominio" "$password_mariadb" "$password_administrator" <<-'BASH'
-      set -o pipefail
+    docker compose --env-file .env.erpnext exec -T backend bash -eo pipefail -c '
       if [[ ! -f "sites/$1/site_config.json" ]]; then
         bench new-site "$1" --mariadb-user-host-login-scope=% \
           --db-root-password "$2" --admin-password "$3" --install-app erpnext
       fi
-      bench --site "$1" list-apps | grep -E '^erpnext([[:space:]]|$)' >/dev/null
-      BASH
+      bench --site "$1" list-apps | grep -E "^erpnext([[:space:]]|$)" >/dev/null
+    ' bash "$dominio" "$password_mariadb" "$password_administrator"
     printf 'ERPNext listo: https://%s (usuario: Administrator)\n' "$dominio"
     ;;
 

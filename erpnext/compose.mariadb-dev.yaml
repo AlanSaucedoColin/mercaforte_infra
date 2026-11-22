@@ -1,0 +1,11 @@
+services:
+  db:
+    configs:
+      - source: mariadb-dev
+        target: /etc/mysql/conf.d/erpnext-dev.cnf
+
+configs:
+  mariadb-dev:
+    content: |
+      [mysqld]
+      lower_case_table_names=1
