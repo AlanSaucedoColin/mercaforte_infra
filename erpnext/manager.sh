@@ -20,22 +20,22 @@ case "$entorno" in
     proyecto='erpnext-dev'
     url="http://$dominio:8080"
     archivos_compose=(
-      -f erpnext/compose.yaml
-      -f erpnext/overrides/compose.mariadb.yaml
-      -f erpnext/overrides/compose.redis.yaml
-      -f erpnext/overrides/compose.noproxy.yaml
-      -f erpnext/overrides/compose.dev.yaml
+      -f compose.yaml
+      -f overrides/compose.mariadb.yaml
+      -f overrides/compose.redis.yaml
+      -f overrides/compose.noproxy.yaml
+      -f overrides/compose.dev.yaml
     )
     ;;
   prod)
     proyecto='erpnext-prod'
     url="https://$dominio"
     archivos_compose=(
-      -f erpnext/compose.yaml
-      -f erpnext/overrides/compose.mariadb.yaml
-      -f erpnext/overrides/compose.redis.yaml
-      -f erpnext/overrides/compose.https.yaml
-      -f erpnext/overrides/compose.prod.yaml
+      -f compose.yaml
+      -f overrides/compose.mariadb.yaml
+      -f overrides/compose.redis.yaml
+      -f overrides/compose.https.yaml
+      -f overrides/compose.prod.yaml
     )
     ;;
   *)
@@ -56,8 +56,8 @@ case "$opcion" in
     docker info >/dev/null
     docker compose version
 
-    if [[ ! -f erpnext/example.env ]]; then
-      printf 'No existe la plantilla erpnext/example.env.\n' >&2
+    if [[ ! -f example.env ]]; then
+      printf 'No existe la plantilla example.env.\n' >&2
       exit 1
     fi
 
@@ -103,12 +103,12 @@ case "$opcion" in
     printf -v linea_correo 'LETSENCRYPT_EMAIL=%s' "$correo_letsencrypt"
     printf -v linea_sitio 'SITES_RULE=Host(`%s`)' "$dominio"
 
-    if [[ ! -e .env.erpnext ]]; then
+    if [[ ! -e .env ]]; then
       (
         umask 077
-        exec > .env.erpnext
+        exec > .env
         sed -E '/^(ERPNEXT_VERSION|DB_PASSWORD|FORWARDED_ALLOW_IPS|LETSENCRYPT_EMAIL|SITES_RULE)=/d' \
-          erpnext/example.env
+          example.env
         printf '\n%s\n%s\n%s\n%s\n%s\n' \
           "$linea_version" \
           "$linea_password" \
@@ -117,35 +117,35 @@ case "$opcion" in
           "$linea_sitio"
       )
     else
-      if ! grep -Fqx "$linea_version" .env.erpnext ||
-        ! grep -Fqx "$linea_password" .env.erpnext ||
-        ! grep -Fqx "$linea_forwarded" .env.erpnext ||
-        ! grep -Fqx "$linea_correo" .env.erpnext ||
-        ! grep -Fqx "$linea_sitio" .env.erpnext; then
+      if ! grep -Fqx "$linea_version" .env ||
+        ! grep -Fqx "$linea_password" .env ||
+        ! grep -Fqx "$linea_forwarded" .env ||
+        ! grep -Fqx "$linea_correo" .env ||
+        ! grep -Fqx "$linea_sitio" .env; then
         printf '%s\n' \
-          '.env.erpnext ya existe y no coincide con la configuración del script.' \
+          '.env ya existe y no coincide con la configuración del script.' \
           'Se conservó sin cambios. Ajusta los valores del script o elimina el archivo para regenerarlo.' >&2
         exit 1
       fi
     fi
 
-    chmod 600 .env.erpnext
+    chmod 600 .env
 
     docker compose \
       --project-name "$proyecto" \
-      --env-file .env.erpnext \
+      --env-file .env \
       "${archivos_compose[@]}" \
       config --quiet
 
     docker compose \
       --project-name "$proyecto" \
-      --env-file .env.erpnext \
+      --env-file .env \
       "${archivos_compose[@]}" \
       up -d
 
     docker compose \
       --project-name "$proyecto" \
-      --env-file .env.erpnext \
+      --env-file .env \
       "${archivos_compose[@]}" \
       exec -T backend bash -eo pipefail -c '
         sitio=$1
@@ -174,20 +174,20 @@ case "$opcion" in
     docker info >/dev/null
     docker compose version
 
-    if [[ ! -f .env.erpnext ]]; then
-      printf 'No existe .env.erpnext. Ejecuta primero Inicializar.\n' >&2
+    if [[ ! -f .env ]]; then
+      printf 'No existe .env. Ejecuta primero Inicializar.\n' >&2
       exit 1
     fi
 
     docker compose \
       --project-name "$proyecto" \
-      --env-file .env.erpnext \
+      --env-file .env \
       "${archivos_compose[@]}" \
       config --quiet
 
     docker compose \
       --project-name "$proyecto" \
-      --env-file .env.erpnext \
+      --env-file .env \
       "${archivos_compose[@]}" \
       up -d
 
@@ -198,14 +198,14 @@ case "$opcion" in
     docker info >/dev/null
     docker compose version
 
-    if [[ ! -f .env.erpnext ]]; then
-      printf 'No existe .env.erpnext. No se puede identificar la configuración.\n' >&2
+    if [[ ! -f .env ]]; then
+      printf 'No existe .env. No se puede identificar la configuración.\n' >&2
       exit 1
     fi
 
     docker compose \
       --project-name "$proyecto" \
-      --env-file .env.erpnext \
+      --env-file .env \
       "${archivos_compose[@]}" \
       down
 
@@ -216,8 +216,8 @@ case "$opcion" in
     docker info >/dev/null
     docker compose version
 
-    if [[ ! -f .env.erpnext ]]; then
-      printf 'No existe .env.erpnext. No se puede identificar la configuración.\n' >&2
+    if [[ ! -f .env ]]; then
+      printf 'No existe .env. No se puede identificar la configuración.\n' >&2
       exit 1
     fi
 
@@ -231,11 +231,11 @@ case "$opcion" in
 
     docker compose \
       --project-name "$proyecto" \
-      --env-file .env.erpnext \
+      --env-file .env \
       "${archivos_compose[@]}" \
       down --volumes --remove-orphans
 
-    printf 'Datos eliminados. .env.erpnext se conservó.\n'
+    printf 'Datos eliminados. .env se conservó.\n'
     ;;
 
   *)

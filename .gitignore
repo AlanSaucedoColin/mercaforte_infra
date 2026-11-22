@@ -1,8 +1,8 @@
 /data/postgres/
 /config/vroom/*.log
 /.env
-/.env.erpnext
-/.env.erpnext.local
-/erpnext-manager.local.sh
-/erpnext-manager.prod.sh
+/erpnext/.env
+/erpnext/.env.local
+/erpnext/manager.local.sh
+/erpnext/manager.prod.sh
 /tools/

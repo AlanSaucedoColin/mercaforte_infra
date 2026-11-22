@@ -1,9 +1,4 @@
 services:
-  db:
-    configs:
-      - source: mariadb-dev
-        target: /etc/mysql/conf.d/erpnext-dev.cnf
-
   configurator:
     platform: linux/arm64
 
@@ -24,9 +19,3 @@ services:
 
   scheduler:
     platform: linux/arm64
-
-configs:
-  mariadb-dev:
-    content: |
-      [mysqld]
-      lower_case_table_names=1
