@@ -1,0 +1,22 @@
+# Arquitectura para producción en Debian x86_64.
+services:
+  configurator:
+    platform: linux/amd64
+
+  backend:
+    platform: linux/amd64
+
+  frontend:
+    platform: linux/amd64
+
+  websocket:
+    platform: linux/amd64
+
+  queue-short:
+    platform: linux/amd64
+
+  queue-long:
+    platform: linux/amd64
+
+  scheduler:
+    platform: linux/amd64
