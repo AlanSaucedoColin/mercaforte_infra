@@ -33,6 +33,8 @@ services:
         bench set-config -g redis_queue "redis://$$REDIS_QUEUE";
         bench set-config -g redis_socketio "redis://$$REDIS_QUEUE";
         bench set-config -gp socketio_port $$SOCKETIO_PORT;
+        bench set-config -g webserver_host "$$WEBSERVER_HOST";
+        bench set-config -gp webserver_port $$WEBSERVER_PORT;
         bench set-config -g chromium_path /usr/lib/chromium/chromium-headless-shell;
     environment:
       DB_HOST: ${DB_HOST:-}
@@ -40,6 +42,8 @@ services:
       REDIS_CACHE: ${REDIS_CACHE:-}
       REDIS_QUEUE: ${REDIS_QUEUE:-}
       SOCKETIO_PORT: 9000
+      WEBSERVER_HOST: backend
+      WEBSERVER_PORT: 8000
     depends_on: {}
     restart: on-failure
 

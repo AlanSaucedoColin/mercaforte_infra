@@ -22,45 +22,6 @@ services:
       - main
 
   # ========================================
-  # WildFly
-  # ========================================
-  wildfly:
-    build:
-      context: .
-      dockerfile: wildfly/Dockerfile
-    container_name: ${WILDFLY_CONTAINER_NAME}
-    restart: always
-    command: [ "/opt/jboss/wildfly/bin/standalone.sh", "-b", "0.0.0.0", "-bmanagement", "0.0.0.0" ]
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_ISSUER: mercaforte-auth
-      JWT_AUDIENCE: mercaforte-api
-      JWT_EXPIRATION_TIME: "23:59:59"
-      BUSINESS_TIME_ZONE: America/Mexico_City
-      VEHICLE_INSPECTION_STORAGE_ROOT: /var/lib/mercaforte/vehicle-inspections
-      WILDFLY_DATASOURCE_JNDI_NAME: java:/jdbc/AppDS
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      DB_NAME: mercaforte
-      DB_USER: mercaforte
-      DB_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - type: bind
-        source: ${VEHICLE_INSPECTION_STORAGE_ROOT}
-        target: /var/lib/mercaforte/vehicle-inspections
-        bind:
-          create_host_path: false
-    expose:
-      - "8080"
-      - "9990"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - main
-
-  # ========================================
   # OSRM
   # ========================================
   osrm:
@@ -83,7 +44,7 @@ services:
       retries: 30
       start_period: 10s
     depends_on:
-      wildfly:
+      postgres:
         condition: service_healthy
         restart: true
     networks:
@@ -113,32 +74,6 @@ services:
       start_period: 10s
     depends_on:
       osrm:
-        condition: service_healthy
-        restart: true
-    networks:
-      - main
-
-  # ========================================
-  # Nginx
-  # ========================================
-  nginx:
-    build:
-      context: .
-      dockerfile: nginx/Dockerfile
-    image: mercaforte-nginx:dev
-    container_name: ${NGINX_CONTAINER_NAME}
-    restart: unless-stopped
-    environment:
-      NGINX_API_PREFIX: ${NGINX_API_PREFIX}
-      NGINX_BACKEND_URL: ${NGINX_BACKEND_URL}
-      NGINX_BACKEND_API_PATH: ${NGINX_BACKEND_API_PATH}
-      NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE}
-      NGINX_VROOM_URL: ${NGINX_VROOM_URL}
-      NGINX_VROOM_TIMEOUT: ${NGINX_VROOM_TIMEOUT}
-    expose:
-      - "80"
-    depends_on:
-      vroom:
         condition: service_healthy
         restart: true
     networks:
