@@ -1,7 +1,4 @@
-/stacks/dev/data/
-/stacks/dev/configs/deployments/
-/stacks/dev/configs/dist/
-/stacks/dev/configs/vroom/*.log
-/stacks/dev/.env
-/tools/maps/.venv/
-/tools/maps/__pycache__/
+/data/postgres/
+/configs/vroom/*.log
+/.env
+/tools/
