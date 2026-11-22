@@ -1,6 +1,6 @@
-/data/postgres/
-/config/vroom/*.log
-/.env
+/mercaforte/data/postgres/
+/mercaforte/config/vroom/*.log
+/mercaforte/.env
 /erpnext/.env
 /erpnext/.env.local
 /erpnext/manager.local.sh

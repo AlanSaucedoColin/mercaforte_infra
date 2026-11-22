@@ -16,7 +16,7 @@ Define `entorno='prod'` y completa al principio `dominio` (sin `https://`), `cor
 ./manager.prod.sh   # 1) Inicializar
 ```
 
-Esto comprueba Docker y Compose y genera `erpnext/.env` a partir de `example.env`. Si el archivo ya existe, se conserva y se valida contra la configuración del script. Docker administra los volúmenes persistentes.
+Esto comprueba Docker y Compose y genera `erpnext/.env` a partir de `.env.example`. Si el archivo ya existe, se conserva y se valida contra la configuración del script. Docker administra los volúmenes persistentes.
 
 La inicialización levanta los servicios, crea el sitio con ERPNext si aún no existe y lo deja en ejecución. Abre `https://TU_DOMINIO` e inicia sesión con `Administrator` y `password_administrator`.
 

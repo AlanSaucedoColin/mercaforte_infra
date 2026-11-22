@@ -56,8 +56,8 @@ case "$opcion" in
     docker info >/dev/null
     docker compose version
 
-    if [[ ! -f example.env ]]; then
-      printf 'No existe la plantilla example.env.\n' >&2
+    if [[ ! -f .env.example ]]; then
+      printf 'No existe la plantilla .env.example.\n' >&2
       exit 1
     fi
 
@@ -108,7 +108,7 @@ case "$opcion" in
         umask 077
         exec > .env
         sed -E '/^(ERPNEXT_VERSION|DB_PASSWORD|FORWARDED_ALLOW_IPS|LETSENCRYPT_EMAIL|SITES_RULE)=/d' \
-          example.env
+          .env.example
         printf '\n%s\n%s\n%s\n%s\n%s\n' \
           "$linea_version" \
           "$linea_password" \

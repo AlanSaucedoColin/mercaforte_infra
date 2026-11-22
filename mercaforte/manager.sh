@@ -2,7 +2,7 @@
 set -euo pipefail
 
 stack_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-postgres_data_directory="/var/lib/mercaforte/postgres/"
+postgres_data_directory="$stack_directory/data/postgres"
 
 cd -- "$stack_directory"
 
