@@ -1,101 +1,241 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-env='dev' # dev o prod
-
+# Configuración
+entorno='dev' # dev o prod
+erpnext_version='v16.60.0'
 dominio='localhost'
 correo_letsencrypt=''
-password_mariadb='MariaDB-Demo-123!'
-password_administrator='Admin-Demo-123!'
+password_mariadb='Saca95-2015pwd'
+password_administrator='adminadminAlan'
+
+# En producción, usa * cuando solo los servicios de esta pila pueden alcanzar
+# el backend. En desarrollo directo puede conservarse el valor predeterminado.
+forwarded_allow_ips='127.0.0.1,::1'
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
-export COMPOSE_PROJECT_NAME="erpnext-$env"
-if [[ "$env" == 'dev' ]]; then
-  root="$HOME/erpnext-demo"
-  frappe_owner=$(id -u)
-  db_owner=$frappe_owner
-  frappe_group=$(id -g)
-  db_group=$frappe_group
-  db_mode=0770
-  acceso=noproxy
-else
-  root="/var/lib/mercaforte/erpnext"
-  frappe_owner=1000
-  db_owner=999
-  frappe_group=0
-  db_group=999
-  db_mode=0700
-  acceso=https
-fi
-export COMPOSE_FILE="erpnext/compose.yaml:erpnext/overrides/compose.mariadb.yaml:erpnext/overrides/compose.redis.yaml:erpnext/overrides/compose.$acceso.yaml:compose.$env.yaml"
-export ERPNEXT_DATA_ROOT="$root"
-printf '%s\n' '1) Inicializar' '2) Iniciar' '3) Detener' '4) Detener y purgar los datos'
-read -r -p 'Selecciona una opción: ' option
 
-case "$option" in
+case "$entorno" in
+  dev)
+    proyecto='erpnext-dev'
+    url="http://$dominio:8080"
+    archivos_compose=(
+      -f erpnext/compose.yaml
+      -f erpnext/overrides/compose.mariadb.yaml
+      -f erpnext/overrides/compose.redis.yaml
+      -f erpnext/overrides/compose.noproxy.yaml
+      -f erpnext/overrides/compose.dev.yaml
+    )
+    ;;
+  prod)
+    proyecto='erpnext-prod'
+    url="https://$dominio"
+    archivos_compose=(
+      -f erpnext/compose.yaml
+      -f erpnext/overrides/compose.mariadb.yaml
+      -f erpnext/overrides/compose.redis.yaml
+      -f erpnext/overrides/compose.https.yaml
+      -f erpnext/overrides/compose.prod.yaml
+    )
+    ;;
+  *)
+    printf 'Entorno inválido: %s. Usa dev o prod.\n' "$entorno" >&2
+    exit 1
+    ;;
+esac
+
+printf '%s\n' \
+  '1) Inicializar' \
+  '2) Iniciar' \
+  '3) Detener' \
+  '4) Detener y purgar los datos'
+read -r -p 'Selecciona una opción: ' opcion
+
+case "$opcion" in
   1) # Inicializar
     docker info >/dev/null
     docker compose version
+
+    if [[ ! -f erpnext/example.env ]]; then
+      printf 'No existe la plantilla erpnext/example.env.\n' >&2
+      exit 1
+    fi
+
+    if [[ -z "$dominio" ]]; then
+      printf 'Debes definir dominio al inicio del script.\n' >&2
+      exit 1
+    fi
+
+    if [[ -z "$password_mariadb" ]]; then
+      printf 'Debes definir password_mariadb al inicio del script.\n' >&2
+      exit 1
+    fi
+
+    if [[ -z "$password_administrator" ]]; then
+      printf 'Debes definir password_administrator al inicio del script.\n' >&2
+      exit 1
+    fi
+
+    if [[ "$entorno" == 'prod' && -z "$correo_letsencrypt" ]]; then
+      printf 'Debes definir correo_letsencrypt para producción.\n' >&2
+      exit 1
+    fi
+
+    if [[ "$entorno" == 'prod' && "$dominio" == 'localhost' ]]; then
+      printf 'Debes definir un dominio público para producción.\n' >&2
+      exit 1
+    fi
+
+    if [[ "$entorno" == 'prod' && "$forwarded_allow_ips" == '127.0.0.1,::1' ]]; then
+      printf '%s\n' \
+        'Debes definir forwarded_allow_ips para producción.' \
+        'Usa * para esta pila controlada o una lista que incluya la IP del frontend.' >&2
+      exit 1
+    fi
+
+    clave_env=${password_mariadb//\\/\\\\}
+    clave_env=${clave_env//\"/\\\"}
+    clave_env=${clave_env//\$/\$\$}
+
+    printf -v linea_version 'ERPNEXT_VERSION=%s' "$erpnext_version"
+    printf -v linea_password 'DB_PASSWORD="%s"' "$clave_env"
+    printf -v linea_forwarded 'FORWARDED_ALLOW_IPS=%s' "$forwarded_allow_ips"
+    printf -v linea_correo 'LETSENCRYPT_EMAIL=%s' "$correo_letsencrypt"
+    printf -v linea_sitio 'SITES_RULE=Host(`%s`)' "$dominio"
 
     if [[ ! -e .env.erpnext ]]; then
       (
         umask 077
         exec > .env.erpnext
-        # En un .env con comillas dobles, proteger \, " y $ de la interpolación.
-        clave=${password_mariadb//\\/\\\\}
-        clave=${clave//\"/\\\"}
-        clave=${clave//\$/\$\$}
-        sed -E '/^(ERPNEXT_DATA_ROOT|DB_PASSWORD|LETSENCRYPT_EMAIL|SITES_RULE)=/d' .env.erpnext.example
-        printf '\nERPNEXT_DATA_ROOT=%s\nDB_PASSWORD="%s"\nLETSENCRYPT_EMAIL=%s\nSITES_RULE=Host(`%s`)\n' \
-          "$root" "$clave" "$correo_letsencrypt" "$dominio"
+        sed -E '/^(ERPNEXT_VERSION|DB_PASSWORD|FORWARDED_ALLOW_IPS|LETSENCRYPT_EMAIL|SITES_RULE)=/d' \
+          erpnext/example.env
+        printf '\n%s\n%s\n%s\n%s\n%s\n' \
+          "$linea_version" \
+          "$linea_password" \
+          "$linea_forwarded" \
+          "$linea_correo" \
+          "$linea_sitio"
       )
+    else
+      if ! grep -Fqx "$linea_version" .env.erpnext ||
+        ! grep -Fqx "$linea_password" .env.erpnext ||
+        ! grep -Fqx "$linea_forwarded" .env.erpnext ||
+        ! grep -Fqx "$linea_correo" .env.erpnext ||
+        ! grep -Fqx "$linea_sitio" .env.erpnext; then
+        printf '%s\n' \
+          '.env.erpnext ya existe y no coincide con la configuración del script.' \
+          'Se conservó sin cambios. Ajusta los valores del script o elimina el archivo para regenerarlo.' >&2
+        exit 1
+      fi
     fi
+
     chmod 600 .env.erpnext
 
-    sudo install -d -o "$frappe_owner" -g "$frappe_group" -m 0770 -- \
-      "$root/frappe/sites" \
-      "$root/frappe/logs/configurator" \
-      "$root/frappe/logs/backend" \
-      "$root/frappe/logs/frontend" \
-      "$root/frappe/logs/websocket" \
-      "$root/frappe/logs/queue-short" \
-      "$root/frappe/logs/queue-long" \
-      "$root/frappe/logs/scheduler"
+    docker compose \
+      --project-name "$proyecto" \
+      --env-file .env.erpnext \
+      "${archivos_compose[@]}" \
+      config --quiet
 
-    sudo install -d -o "$db_owner" -g "$db_group" -m "$db_mode" -- \
-      "$root/mariadb" "$root/redis-cache" "$root/redis-queue"
+    docker compose \
+      --project-name "$proyecto" \
+      --env-file .env.erpnext \
+      "${archivos_compose[@]}" \
+      up -d
 
-    if [[ "$env" != 'dev' ]]; then
-      sudo install -d -o 0 -g 0 -m 0700 -- "$root/traefik"
-    fi
+    docker compose \
+      --project-name "$proyecto" \
+      --env-file .env.erpnext \
+      "${archivos_compose[@]}" \
+      exec -T backend bash -eo pipefail -c '
+        sitio=$1
+        password_db=$2
+        password_admin=$3
 
-    docker compose --env-file .env.erpnext up -d
-    docker compose --env-file .env.erpnext exec -T backend bash -eo pipefail -c '
-      if [[ ! -f "sites/$1/site_config.json" ]]; then
-        bench new-site "$1" --mariadb-user-host-login-scope=% \
-          --db-root-password "$2" --admin-password "$3" --install-app erpnext
-      fi
-      bench --site "$1" list-apps | grep -E "^erpnext([[:space:]]|$)" >/dev/null
-    ' bash "$dominio" "$password_mariadb" "$password_administrator"
-    printf 'ERPNext listo: https://%s (usuario: Administrator)\n' "$dominio"
+        if [[ ! -f "sites/$sitio/site_config.json" ]]; then
+          bench new-site "$sitio" \
+            --mariadb-user-host-login-scope=% \
+            --db-root-password "$password_db" \
+            --admin-password "$password_admin" \
+            --install-app erpnext
+        elif ! bench --site "$sitio" list-apps |
+          grep -E "^erpnext([[:space:]]|$)" >/dev/null; then
+          bench --site "$sitio" install-app erpnext
+        fi
+
+        bench --site "$sitio" list-apps |
+          grep -E "^erpnext([[:space:]]|$)" >/dev/null
+      ' bash "$dominio" "$password_mariadb" "$password_administrator"
+
+    printf 'ERPNext listo: %s (usuario: Administrator)\n' "$url"
     ;;
 
   2) # Iniciar
-    docker compose --env-file .env.erpnext up -d
+    docker info >/dev/null
+    docker compose version
+
+    if [[ ! -f .env.erpnext ]]; then
+      printf 'No existe .env.erpnext. Ejecuta primero Inicializar.\n' >&2
+      exit 1
+    fi
+
+    docker compose \
+      --project-name "$proyecto" \
+      --env-file .env.erpnext \
+      "${archivos_compose[@]}" \
+      config --quiet
+
+    docker compose \
+      --project-name "$proyecto" \
+      --env-file .env.erpnext \
+      "${archivos_compose[@]}" \
+      up -d
+
+    printf 'ERPNext iniciado: %s\n' "$url"
     ;;
 
   3) # Detener
-    docker compose --env-file .env.erpnext down
-    ;;
+    docker info >/dev/null
+    docker compose version
 
-  4) # Purgar
-    if [[ ! -d "$root" || "$root" == / || "$(cd -- "$root" && pwd -P)" != "$root" ]]; then
-      printf 'No se purgará la ruta: %s\n' "$root" >&2
+    if [[ ! -f .env.erpnext ]]; then
+      printf 'No existe .env.erpnext. No se puede identificar la configuración.\n' >&2
       exit 1
     fi
-    docker compose --env-file .env.erpnext down
-    sudo find "$root" -xdev -depth -mindepth 1 -delete
-    printf 'Datos eliminados. Para volver a empezar, ejecuta Inicializar.\n'
+
+    docker compose \
+      --project-name "$proyecto" \
+      --env-file .env.erpnext \
+      "${archivos_compose[@]}" \
+      down
+
+    printf 'ERPNext detenido. Los volúmenes se conservaron.\n'
+    ;;
+
+  4) # Detener y purgar
+    docker info >/dev/null
+    docker compose version
+
+    if [[ ! -f .env.erpnext ]]; then
+      printf 'No existe .env.erpnext. No se puede identificar la configuración.\n' >&2
+      exit 1
+    fi
+
+    printf 'Se eliminarán los volúmenes y todos los datos de %s.\n' "$proyecto"
+    read -r -p 'Escribe PURGAR para continuar: ' confirmacion
+
+    if [[ "$confirmacion" != 'PURGAR' ]]; then
+      printf 'Purga cancelada.\n'
+      exit 0
+    fi
+
+    docker compose \
+      --project-name "$proyecto" \
+      --env-file .env.erpnext \
+      "${archivos_compose[@]}" \
+      down --volumes --remove-orphans
+
+    printf 'Datos eliminados. .env.erpnext se conservó.\n'
     ;;
 
   *)
