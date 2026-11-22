@@ -17,7 +17,7 @@ if [[ "$env" == 'dev' ]]; then
   frappe_group=$(id -g)
   db_group=$frappe_group
   db_mode=0770
-  export COMPOSE_FILE=compose.erpnext.yaml:erpnext/compose.mariadb.yaml:erpnext/compose.mariadb-dev.yaml:erpnext/compose.redis.yaml:erpnext/compose.noproxy.yaml:erpnext/compose.bind-mounts.yaml
+  acceso=noproxy
 else
   root="/var/lib/mercaforte/erpnext"
   frappe_owner=1000
@@ -25,8 +25,9 @@ else
   frappe_group=0
   db_group=999
   db_mode=0700
-  export COMPOSE_FILE=compose.erpnext.yaml:erpnext/compose.mariadb.yaml:erpnext/compose.redis.yaml:erpnext/compose.https.yaml:erpnext/compose.bind-mounts.yaml
+  acceso=https
 fi
+export COMPOSE_FILE="erpnext/compose.yaml:erpnext/overrides/compose.mariadb.yaml:erpnext/overrides/compose.redis.yaml:erpnext/overrides/compose.$acceso.yaml:compose.$env.yaml"
 export ERPNEXT_DATA_ROOT="$root"
 printf '%s\n' '1) Inicializar' '2) Iniciar' '3) Detener' '4) Detener y purgar los datos'
 read -r -p 'Selecciona una opción: ' option
