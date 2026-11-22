@@ -1,10 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+entorno='dev'
+
 stack_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
 cd -- "$stack_directory"
 
+case "$entorno" in
+  dev)
+    proyecto='mercaforte-dev'
+    archivo_compose='compose.dev.yml'
+    ;;
+  prod)
+    proyecto='mercaforte-prod'
+    archivo_compose='compose.prod.yml'
+    ;;
+  *)
+    printf "Entorno inválido: %s. Usa 'dev' o 'prod'.\n" "$entorno" >&2
+    exit 1
+    ;;
+esac
+
+printf 'Entorno: %s\n' "$entorno"
 printf '1) Inicializar\n2) Iniciar\n3) Detener\n4) Detener el stack, eliminar los datos de PostgreSQL y recrear los contenedores\n'
 read -r -p 'Selecciona una opción: ' selected_option
 
@@ -15,14 +33,28 @@ case "$selected_option" in
     fi
     ;;
   2)
-    docker compose --progress plain up -d --build
+    docker compose \
+      --project-name "$proyecto" \
+      -f "$archivo_compose" \
+      --progress plain \
+      up -d --build
     ;;
   3)
-    docker compose down --remove-orphans
+    docker compose \
+      --project-name "$proyecto" \
+      -f "$archivo_compose" \
+      down --remove-orphans
     ;;
   4)
-    docker compose down --volumes --remove-orphans
-    docker compose up -d --force-recreate
+    docker compose \
+      --project-name "$proyecto" \
+      -f "$archivo_compose" \
+      down --volumes --remove-orphans
+
+    docker compose \
+      --project-name "$proyecto" \
+      -f "$archivo_compose" \
+      up -d --force-recreate
     ;;
   *)
     printf 'Opción inválida. Usa 1, 2, 3 o 4.\n' >&2
