@@ -23,8 +23,8 @@ EXPOSE 8080
 WORKDIR $JBOSS_HOME
 
 # --- Instalación de Dependencias ---
-COPY --chown=jboss:jboss ./drivers/postgresql-42.7.8.jar /tmp/postgresql.jar
-COPY --chown=jboss:jboss ./init/init.cli ${JBOSS_HOME}/init.cli
+COPY --chown=jboss:jboss ./wildfly/drivers/postgresql-42.7.8.jar /tmp/postgresql.jar
+COPY --chown=jboss:jboss ./wildfly/init/init.cli ${JBOSS_HOME}/init.cli
 
 # Ejecuta configuración offline (CLI) y limpia temporales
 RUN $JBOSS_HOME/bin/jboss-cli.sh --file=$JBOSS_HOME/init.cli && \
@@ -34,8 +34,8 @@ RUN $JBOSS_HOME/bin/jboss-cli.sh --file=$JBOSS_HOME/init.cli && \
     $JBOSS_HOME/standalone/data
 
 # --- Despliegues ---
-# Copia el contenido local de deployments, incluido ROOT.war, al servidor
-COPY --chown=jboss:jboss --chmod=0755 ./deployments/ ${JBOSS_HOME}/standalone/deployments/
+# Copia los artefactos desde configs/deployments
+COPY --chown=jboss:jboss --chmod=0755 ./configs/deployments/ ${JBOSS_HOME}/standalone/deployments/
 
 # --- Configuración de Entorno ---
 ENV TZ="${TZ}"

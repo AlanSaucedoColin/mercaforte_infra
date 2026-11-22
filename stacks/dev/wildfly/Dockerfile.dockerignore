@@ -1,0 +1,12 @@
+**
+!wildfly/
+wildfly/**
+!wildfly/Dockerfile
+!wildfly/drivers/
+!wildfly/drivers/postgresql-42.7.8.jar
+!wildfly/init/
+!wildfly/init/init.cli
+!configs/
+configs/**
+!configs/deployments/
+!configs/deployments/**

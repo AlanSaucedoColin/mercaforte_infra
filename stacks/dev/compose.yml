@@ -1,7 +1,7 @@
-# Arranque secuencial: postgres -> wildfly -> nginx -> osrm -> vroom
-name: dev
-
 services:
+  # ========================================
+  # PostgreSQL
+  # ========================================
   postgres:
     image: postgres:15.20
     container_name: ${POSTGRES_CONTAINER_NAME}
@@ -21,9 +21,13 @@ services:
     networks:
       - main
 
+  # ========================================
+  # WildFly
+  # ========================================
   wildfly:
     build:
-      context: ./wildfly
+      context: .
+      dockerfile: wildfly/Dockerfile
     container_name: ${WILDFLY_CONTAINER_NAME}
     restart: always
     command: [ "/opt/jboss/wildfly/bin/standalone.sh", "-b", "0.0.0.0", "-bmanagement", "0.0.0.0" ]
@@ -56,9 +60,13 @@ services:
     networks:
       - main
 
+  # ========================================
+  # Nginx
+  # ========================================
   nginx:
     build:
-      context: ./nginx
+      context: .
+      dockerfile: nginx/Dockerfile
     image: mercaforte-nginx:dev
     container_name: ${NGINX_CONTAINER_NAME}
     restart: unless-stopped
@@ -78,6 +86,9 @@ services:
     networks:
       - main
 
+  # ========================================
+  # OSRM
+  # ========================================
   osrm:
     image: ghcr.io/project-osrm/osrm-backend:v26.11.0-debian@sha256:e1929ae2818226284d7ef007329098a30851c11528ab3712bc9c8d68da78278b
     container_name: ${OSRM_CONTAINER_NAME}
@@ -92,15 +103,7 @@ services:
     volumes:
       - ./data/osrm:/data
     healthcheck:
-      test:
-        - CMD
-        - bash
-        - -ec
-        - >-
-          exec 3<>/dev/tcp/127.0.0.1/5000;
-          printf 'GET /nearest/v1/driving/-99.2216,18.9242 HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3;
-          IFS= read -r status <&3;
-          [[ "$$status" == *" 200 "* ]]
+      test: [ "CMD", "bash", "-ec", 'exec 3<>/dev/tcp/127.0.0.1/5000; printf "GET /nearest/v1/driving/-99.2216,18.9242 HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3; IFS= read -r status <&3; [[ "$$status" == *" 200 "* ]]' ]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -111,6 +114,9 @@ services:
     networks:
       - main
 
+  # ========================================
+  # Vroom
+  # ========================================
   vroom:
     image: ghcr.io/vroom-project/vroom-docker:v1.15.0
     container_name: ${VROOM_CONTAINER_NAME}
@@ -123,13 +129,7 @@ services:
     expose:
       - "3000"
     volumes:
-      - ./data/vroom:/conf
-      - type: bind
-        source: ./configs/vroom/config.yml
-        target: /conf/config.yml
-        read_only: true
-        bind:
-          create_host_path: false
+      - ./configs/vroom:/conf
     healthcheck:
       test: [ "CMD", "curl", "--fail", "--silent", "--max-time", "5", "http://127.0.0.1:3000/health" ]
       interval: 5s

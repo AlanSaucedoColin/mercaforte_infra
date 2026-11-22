@@ -1,0 +1,10 @@
+**
+!nginx/
+nginx/**
+!nginx/Dockerfile
+!nginx/templates/
+!nginx/templates/default.conf.template
+!configs/
+configs/**
+!configs/dist/
+!configs/dist/**
