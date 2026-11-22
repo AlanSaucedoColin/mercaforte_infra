@@ -51,10 +51,6 @@ case "$selected_option" in
       -f "$archivo_compose" \
       down --volumes --remove-orphans
 
-    docker compose \
-      --project-name "$proyecto" \
-      -f "$archivo_compose" \
-      up -d --force-recreate
     ;;
   *)
     printf 'Opción inválida. Usa 1, 2, 3 o 4.\n' >&2
