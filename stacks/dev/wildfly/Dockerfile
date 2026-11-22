@@ -40,7 +40,8 @@ COPY --chown=jboss:jboss --chmod=0755 ./deployments/ ${JBOSS_HOME}/standalone/de
 # --- Configuración de Entorno ---
 ENV TZ="${TZ}"
 ENV SPRING_PROFILES_ACTIVE="prod"
-ENV JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF-8 -Duser.timezone=${TZ} -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:MinRAMPercentage=75.0"
+# Mitigación temporal para Java4Shell hasta disponer de WildFly con Temurin 21.0.13.1+2 o posterior.
+ENV JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF-8 -Duser.timezone=${TZ} -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:MinRAMPercentage=75.0 -XX:-UseBASE64Intrinsics"
 
 STOPSIGNAL SIGTERM
 

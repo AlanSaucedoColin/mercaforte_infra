@@ -1,135 +1,145 @@
-# Arranque secuencial: postgres -> osrm -> vroom -> wildfly -> nginx
+# Arranque secuencial: postgres -> wildfly -> nginx -> osrm -> vroom
+name: dev
+
 services:
-  osrm:
-    build:
-      context: ${OSRM_BUILD_CONTEXT:?Falta OSRM_BUILD_CONTEXT en .env}
-    image: ${OSRM_IMAGE:?Falta OSRM_IMAGE en .env}
-    # Coordinador de bloqueos pausado; servir solo el mapa base
-    entrypoint: [ "osrm-routed" ]
-    command: [ "--algorithm", "${OSRM_ALGORITHM:?Falta OSRM_ALGORITHM en .env}", "--threads", "${OSRM_THREADS:?Falta OSRM_THREADS en .env}", "--max-table-size", "${OSRM_MAX_TABLE_SIZE:?Falta OSRM_MAX_TABLE_SIZE en .env}", "/data/${OSRM_DATA_FILE:?Falta OSRM_DATA_FILE en .env}" ]
-    restart: ${SERVICE_RESTART_POLICY:?Falta SERVICE_RESTART_POLICY en .env}
-    cpus: ${OSRM_CPUS:?Falta OSRM_CPUS en .env}
-    mem_limit: ${OSRM_MEMORY_LIMIT:?Falta OSRM_MEMORY_LIMIT en .env}
-    stop_grace_period: ${OSRM_STOP_GRACE_PERIOD:?Falta OSRM_STOP_GRACE_PERIOD en .env}
-    ports:
-      - "${ROUTING_BIND_ADDRESS:?Falta ROUTING_BIND_ADDRESS en .env}:${OSRM_HOST_PORT:?Falta OSRM_HOST_PORT en .env}:5000"
+  postgres:
+    image: postgres:15.20
+    container_name: ${POSTGRES_CONTAINER_NAME}
+    expose:
+      - "5432"
+    environment:
+      - POSTGRES_USER=mercaforte
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=mercaforte
     volumes:
-      - ${OSRM_DATA_DIR:?Falta OSRM_DATA_DIR en .env}:/data
+      - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD", "wget", "-q", "-O", "/dev/null", "-T", "${OSRM_HEALTH_REQUEST_TIMEOUT:?Falta OSRM_HEALTH_REQUEST_TIMEOUT en .env}", "http://127.0.0.1:5000/nearest/v1/driving/${OSRM_HEALTH_COORDINATES:?Falta OSRM_HEALTH_COORDINATES en .env}" ]
-      interval: ${HEALTHCHECK_INTERVAL:?Falta HEALTHCHECK_INTERVAL en .env}
-      timeout: ${HEALTHCHECK_TIMEOUT:?Falta HEALTHCHECK_TIMEOUT en .env}
-      retries: ${OSRM_HEALTHCHECK_RETRIES:?Falta OSRM_HEALTHCHECK_RETRIES en .env}
-      start_period: ${HEALTHCHECK_START_PERIOD:?Falta HEALTHCHECK_START_PERIOD en .env}
+      test: [ "CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - main
+
+  wildfly:
+    build:
+      context: ./wildfly
+    container_name: ${WILDFLY_CONTAINER_NAME}
+    restart: always
+    command: [ "/opt/jboss/wildfly/bin/standalone.sh", "-b", "0.0.0.0", "-bmanagement", "0.0.0.0" ]
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: mercaforte-auth
+      JWT_AUDIENCE: mercaforte-api
+      JWT_EXPIRATION_TIME: "23:59:59"
+      BUSINESS_TIME_ZONE: America/Mexico_City
+      VEHICLE_INSPECTION_STORAGE_ROOT: /var/lib/mercaforte/vehicle-inspections
+      WILDFLY_DATASOURCE_JNDI_NAME: java:/jdbc/AppDS
+      ROUTING_MANAGER_URL: http://osrm:5001
+      ROUTING_MANAGER_TOKEN: ${ROUTING_MANAGER_TOKEN}
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: mercaforte
+      DB_USER: mercaforte
+      DB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - type: bind
+        source: ${VEHICLE_INSPECTION_STORAGE_ROOT}
+        target: /var/lib/mercaforte/vehicle-inspections
+        bind:
+          create_host_path: false
+    expose:
+      - "8080"
+      - "9990"
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - main
+
+  nginx:
+    build:
+      context: ./nginx
+    image: mercaforte-nginx:dev
+    container_name: ${NGINX_CONTAINER_NAME}
+    restart: unless-stopped
+    environment:
+      NGINX_API_PREFIX: ${NGINX_API_PREFIX}
+      NGINX_BACKEND_URL: ${NGINX_BACKEND_URL}
+      NGINX_BACKEND_API_PATH: ${NGINX_BACKEND_API_PATH}
+      NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE}
+      NGINX_VROOM_URL: ${NGINX_VROOM_URL}
+      NGINX_VROOM_TIMEOUT: ${NGINX_VROOM_TIMEOUT}
+    expose:
+      - "80"
+    depends_on:
+      wildfly:
+        condition: service_healthy
+        restart: true
+    networks:
+      - main
+
+  osrm:
+    build:
+      context: ./osrm
+    image: mercaforte-osrm-routing:26.11.0
+    container_name: ${OSRM_CONTAINER_NAME}
+    # Coordinador de bloqueos pausado; servir solo el mapa base
+    entrypoint: [ "osrm-routed" ]
+    command: [ "--algorithm", "MLD", "--threads", "2", "--max-table-size", "1400", "/data/morelos.osrm" ]
+    restart: unless-stopped
+    cpus: 2.0
+    mem_limit: 2g
+    stop_grace_period: 30s
+    expose:
+      - "5000"
+    volumes:
+      - ./data/osrm:/data
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "-O", "/dev/null", "-T", "3", "http://127.0.0.1:5000/nearest/v1/driving/-99.2216,18.9242" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    depends_on:
+      nginx:
+        condition: service_started
+    networks:
+      - main
 
   vroom:
-    image: ${VROOM_IMAGE:?Falta VROOM_IMAGE en .env}
-    restart: ${SERVICE_RESTART_POLICY:?Falta SERVICE_RESTART_POLICY en .env}
-    cpus: ${VROOM_CPUS:?Falta VROOM_CPUS en .env}
-    mem_limit: ${VROOM_MEMORY_LIMIT:?Falta VROOM_MEMORY_LIMIT en .env}
+    image: ghcr.io/vroom-project/vroom-docker:v1.15.0
+    container_name: ${VROOM_CONTAINER_NAME}
+    restart: unless-stopped
+    cpus: 2.0
+    mem_limit: 1g
     environment:
       VROOM_ROUTER: osrm
       VROOM_LOG: /conf
-    ports:
-      - "${ROUTING_BIND_ADDRESS:?Falta ROUTING_BIND_ADDRESS en .env}:${VROOM_HOST_PORT:?Falta VROOM_HOST_PORT en .env}:3000"
+    expose:
+      - "3000"
     volumes:
-      - ${VROOM_DATA_DIR:?Falta VROOM_DATA_DIR en .env}:/conf
+      - ./data/vroom:/conf
       - type: bind
-        source: ${VROOM_CONFIG_FILE:?Falta VROOM_CONFIG_FILE en .env}
+        source: ./configs/vroom/config.yml
         target: /conf/config.yml
         read_only: true
         bind:
           create_host_path: false
     healthcheck:
-      test: [ "CMD", "curl", "--fail", "--silent", "--max-time", "${VROOM_HEALTH_REQUEST_TIMEOUT:?Falta VROOM_HEALTH_REQUEST_TIMEOUT en .env}", "http://127.0.0.1:3000/health" ]
-      interval: ${HEALTHCHECK_INTERVAL:?Falta HEALTHCHECK_INTERVAL en .env}
-      timeout: ${HEALTHCHECK_TIMEOUT:?Falta HEALTHCHECK_TIMEOUT en .env}
-      retries: ${HEALTHCHECK_RETRIES:?Falta HEALTHCHECK_RETRIES en .env}
-      start_period: ${HEALTHCHECK_START_PERIOD:?Falta HEALTHCHECK_START_PERIOD en .env}
+      test: [ "CMD", "curl", "--fail", "--silent", "--max-time", "5", "http://127.0.0.1:3000/health" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     depends_on:
       osrm:
         condition: service_healthy
-
-  postgres:
-    image: ${POSTGRES_IMAGE:?Falta POSTGRES_IMAGE en .env}
-    container_name: ${POSTGRES_CONTAINER_NAME:?Falta POSTGRES_CONTAINER_NAME en .env}
-    ports:
-      - "${PUBLIC_BIND_ADDRESS:?Falta PUBLIC_BIND_ADDRESS en .env}:${POSTGRES_HOST_PORT:?Falta POSTGRES_HOST_PORT en .env}:5432"
-    environment:
-      - POSTGRES_USER=${DB_USER:?Falta DB_USER en .env}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:?Falta DB_PASSWORD en .env}
-      - POSTGRES_DB=${DB_NAME:?Falta DB_NAME en .env}
-    volumes:
-      - ${POSTGRES_DATA_DIR:?Falta POSTGRES_DATA_DIR en .env}:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' ]
-      interval: ${HEALTHCHECK_INTERVAL:?Falta HEALTHCHECK_INTERVAL en .env}
-      timeout: ${HEALTHCHECK_TIMEOUT:?Falta HEALTHCHECK_TIMEOUT en .env}
-      retries: ${HEALTHCHECK_RETRIES:?Falta HEALTHCHECK_RETRIES en .env}
-
-  wildfly:
-    build:
-      context: ${WILDFLY_BUILD_CONTEXT:?Falta WILDFLY_BUILD_CONTEXT en .env}
-      args:
-        WILDFLY_VERSION: ${WILDFLY_VERSION:?Falta WILDFLY_VERSION en .env}
-        WILDFLY_DIGEST: ${WILDFLY_DIGEST:?Falta WILDFLY_DIGEST en .env}
-        TZ: ${BUSINESS_TIME_ZONE:?Falta BUSINESS_TIME_ZONE en .env}
-    container_name: ${WILDFLY_CONTAINER_NAME:?Falta WILDFLY_CONTAINER_NAME en .env}
-    restart: ${WILDFLY_RESTART_POLICY:?Falta WILDFLY_RESTART_POLICY en .env}
-    command: [ "/opt/jboss/wildfly/bin/standalone.sh", "-b", "0.0.0.0", "-bmanagement", "0.0.0.0" ]
-    environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:?Falta SPRING_PROFILES_ACTIVE en .env}
-      JWT_SECRET: ${JWT_SECRET:?Configura JWT_SECRET en stacks/dev/.env con al menos 32 caracteres}
-      JWT_ISSUER: ${JWT_ISSUER:?Falta JWT_ISSUER en .env}
-      JWT_AUDIENCE: ${JWT_AUDIENCE:?Falta JWT_AUDIENCE en .env}
-      JWT_EXPIRATION_TIME: ${JWT_EXPIRATION_TIME:?Falta JWT_EXPIRATION_TIME en .env}
-      BUSINESS_TIME_ZONE: ${BUSINESS_TIME_ZONE:?Falta BUSINESS_TIME_ZONE en .env}
-      VEHICLE_INSPECTION_STORAGE_ROOT: ${VEHICLE_INSPECTION_CONTAINER_ROOT:?Falta VEHICLE_INSPECTION_CONTAINER_ROOT en .env}
-      WILDFLY_DATASOURCE_JNDI_NAME: ${WILDFLY_DATASOURCE_JNDI_NAME:?Falta WILDFLY_DATASOURCE_JNDI_NAME en .env}
-      ROUTING_MANAGER_URL: ${ROUTING_MANAGER_URL:?Falta ROUTING_MANAGER_URL en .env}
-      ROUTING_MANAGER_TOKEN: ${ROUTING_MANAGER_TOKEN?Falta ROUTING_MANAGER_TOKEN en .env}
-      DB_HOST: ${DB_HOST:?Falta DB_HOST en .env}
-      DB_PORT: ${DB_PORT:?Falta DB_PORT en .env}
-      DB_NAME: ${DB_NAME:?Falta DB_NAME en .env}
-      DB_USER: ${DB_USER:?Falta DB_USER en .env}
-      DB_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en .env}
-    volumes:
-      - type: bind
-        source: ${VEHICLE_INSPECTION_STORAGE_ROOT:?Configura VEHICLE_INSPECTION_STORAGE_ROOT en stacks/dev/.env}
-        target: ${VEHICLE_INSPECTION_CONTAINER_ROOT:?Falta VEHICLE_INSPECTION_CONTAINER_ROOT en .env}
-        bind:
-          create_host_path: false
-    ports:
-      - "${PUBLIC_BIND_ADDRESS:?Falta PUBLIC_BIND_ADDRESS en .env}:${WILDFLY_HTTP_PORT:?Falta WILDFLY_HTTP_PORT en .env}:8080"
-      - "${PUBLIC_BIND_ADDRESS:?Falta PUBLIC_BIND_ADDRESS en .env}:${WILDFLY_ADMIN_PORT:?Falta WILDFLY_ADMIN_PORT en .env}:9990"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      vroom:
-        condition: service_healthy
-
-  nginx:
-    build:
-      context: ${NGINX_BUILD_CONTEXT:?Falta NGINX_BUILD_CONTEXT en .env}
-      args:
-        NGINX_BASE_IMAGE: ${NGINX_BASE_IMAGE:?Falta NGINX_BASE_IMAGE en .env}
-    image: ${NGINX_IMAGE:?Falta NGINX_IMAGE en .env}
-    restart: ${SERVICE_RESTART_POLICY:?Falta SERVICE_RESTART_POLICY en .env}
-    environment:
-      NGINX_API_PREFIX: ${NGINX_API_PREFIX:?Falta NGINX_API_PREFIX en .env}
-      NGINX_BACKEND_URL: ${NGINX_BACKEND_URL:?Falta NGINX_BACKEND_URL en .env}
-      NGINX_BACKEND_API_PATH: ${NGINX_BACKEND_API_PATH:?Falta NGINX_BACKEND_API_PATH en .env}
-      NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE:?Falta NGINX_CLIENT_MAX_BODY_SIZE en .env}
-    ports:
-      - "${PUBLIC_BIND_ADDRESS:?Falta PUBLIC_BIND_ADDRESS en .env}:${NGINX_HTTP_PORT:?Falta NGINX_HTTP_PORT en .env}:80"
-    depends_on:
-      wildfly:
-        condition: service_healthy
-        restart: true
+    networks:
+      - main
 
 networks:
-  default:
-    driver: bridge
+  main:
+    external: true
+    name: main

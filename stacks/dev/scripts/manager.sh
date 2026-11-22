@@ -49,7 +49,7 @@ initialize() {
 }
 
 start() {
-  printf 'Orden de arranque: PostgreSQL -> OSRM -> VROOM -> WildFly -> Nginx\n'
+  printf 'Orden de arranque: PostgreSQL -> WildFly -> Nginx -> OSRM -> VROOM\n'
   printf 'Construyendo imagenes y mostrando los logs de todos los servicios\n'
   docker compose --progress plain -f compose.yml up --build
 }
@@ -78,7 +78,7 @@ reinitialize() {
     sudo rmdir -- "$postgres_data_directory"
   fi
   initialize
-  printf 'Orden de arranque: PostgreSQL -> OSRM -> VROOM -> WildFly -> Nginx\n'
+  printf 'Orden de arranque: PostgreSQL -> WildFly -> Nginx -> OSRM -> VROOM\n'
   printf 'Reconstruyendo imagenes, recreando servicios y mostrando todos los logs\n'
   docker compose --progress plain -f compose.yml up --build --force-recreate
 }

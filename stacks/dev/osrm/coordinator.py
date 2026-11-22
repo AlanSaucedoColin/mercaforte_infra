@@ -120,7 +120,7 @@ def dataset_hash():
     for path in [Path("/opt/car.lua"), *sorted(Path("/opt/lib").rglob("*.lua"))]:
         digest.update(str(path.relative_to("/opt")).encode())
         digest.update(path.read_bytes())
-    digest.update(b"OSRM-v6.0.0-routing-profile-v1")
+    digest.update(b"OSRM-v26.11.0-routing-profile-v1")
     return digest.hexdigest()
 
 

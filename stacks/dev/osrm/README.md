@@ -1,6 +1,6 @@
 # OSRM: guardado unico de cierres efectivos
 
-El contenedor conserva OSRM 6.0.0 y MLD. El coordinador sirve el protocolo OSRM en 5000 y lo reenvia a
+El contenedor usa OSRM 26.11.0 y MLD. El coordinador sirve el protocolo OSRM en 5000 y lo reenvia a
 osrm-routed, que escucha exclusivamente dentro del contenedor en 127.0.0.1:5002. VROOM sigue usando osrm:5000.
 La API interna GET/PUT /active-blocks y GET /elevation/tiles/{z}/{x}/{y}.png escucha en 5001; Compose publica ese puerto solo en 127.0.0.1.
 Exige X-Routing-Token con ROUTING_MANAGER_TOKEN, un secreto de al menos 24 caracteres compartido con el backend.
