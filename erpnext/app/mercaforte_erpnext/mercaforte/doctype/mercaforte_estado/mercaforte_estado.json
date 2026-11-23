@@ -1,0 +1,39 @@
+{
+ "doctype": "DocType",
+ "name": "Mercaforte Estado",
+ "module": "Mercaforte",
+ "autoname": "field:clave",
+ "naming_rule": "By fieldname",
+ "title_field": "nombre",
+ "show_title_field_in_link": 1,
+ "sort_field": "nombre",
+ "sort_order": "ASC",
+ "field_order": [
+  "clave",
+  "nombre"
+ ],
+ "fields": [
+  {
+   "fieldname": "clave",
+   "fieldtype": "Data",
+   "label": "Clave INEGI",
+   "length": 2,
+   "reqd": 1,
+   "set_only_once": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "nombre",
+   "fieldtype": "Data",
+   "label": "Nombre",
+   "reqd": 1,
+   "in_list_view": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "Desk User",
+   "read": 1
+  }
+ ]
+}

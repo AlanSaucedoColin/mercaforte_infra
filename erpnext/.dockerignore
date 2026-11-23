@@ -1,0 +1,11 @@
+# Sólo el Dockerfile y la app forman parte del contexto de construcción.
+**
+!Dockerfile
+!app/
+!app/**
+**/.env
+**/.env.*
+**/.git
+**/__pycache__
+**/*.py[co]
+**/.DS_Store

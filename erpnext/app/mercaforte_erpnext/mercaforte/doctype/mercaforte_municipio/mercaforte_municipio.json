@@ -1,0 +1,50 @@
+{
+ "doctype": "DocType",
+ "name": "Mercaforte Municipio",
+ "module": "Mercaforte",
+ "autoname": "field:clave",
+ "naming_rule": "By fieldname",
+ "title_field": "nombre",
+ "show_title_field_in_link": 1,
+ "sort_field": "nombre",
+ "sort_order": "ASC",
+ "field_order": [
+  "clave",
+  "nombre",
+  "estado"
+ ],
+ "fields": [
+  {
+   "fieldname": "clave",
+   "fieldtype": "Data",
+   "label": "Clave INEGI",
+   "length": 5,
+   "reqd": 1,
+   "set_only_once": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "nombre",
+   "fieldtype": "Data",
+   "label": "Nombre",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "estado",
+   "fieldtype": "Link",
+   "options": "Mercaforte Estado",
+   "label": "Estado",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "Desk User",
+   "read": 1
+  }
+ ]
+}

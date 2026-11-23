@@ -1,0 +1,6 @@
+services:
+  erpnext:
+    image: mercaforte/erpnext:v16.60.0-app0.2.0
+    build:
+      context: .
+      dockerfile: Dockerfile

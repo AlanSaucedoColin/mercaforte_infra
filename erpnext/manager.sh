@@ -158,13 +158,16 @@ case "$opcion" in
             --db-root-password "$password_db" \
             --admin-password "$password_admin" \
             --install-app erpnext
-        elif ! bench --site "$sitio" list-apps |
-          grep -E "^erpnext([[:space:]]|$)" >/dev/null; then
-          bench --site "$sitio" install-app erpnext
         fi
 
-        bench --site "$sitio" list-apps |
-          grep -E "^erpnext([[:space:]]|$)" >/dev/null
+        apps_instaladas=$(bench --site "$sitio" list-apps)
+        for app in erpnext mercaforte_erpnext; do
+          if ! grep -Eq "^${app}([[:space:]]|$)" <<< "$apps_instaladas"; then
+            bench --site "$sitio" install-app "$app"
+            apps_instaladas=$(bench --site "$sitio" list-apps)
+            grep -Eq "^${app}([[:space:]]|$)" <<< "$apps_instaladas"
+          fi
+        done
       ' bash "$dominio" "$password_mariadb" "$password_administrator"
 
     printf 'ERPNext listo: %s (usuario: Administrator)\n' "$url"

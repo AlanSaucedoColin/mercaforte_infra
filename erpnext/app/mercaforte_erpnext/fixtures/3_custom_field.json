@@ -1,0 +1,38 @@
+[
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_mercaforte_estado",
+    "dt": "Customer",
+    "fieldname": "custom_mercaforte_estado",
+    "label": "Estado",
+    "fieldtype": "Link",
+    "options": "Mercaforte Estado",
+    "insert_after": "territory",
+    "module": "Mercaforte",
+    "allow_in_quick_entry": 1
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_mercaforte_municipio",
+    "dt": "Customer",
+    "fieldname": "custom_mercaforte_municipio",
+    "label": "Municipio o alcaldía",
+    "fieldtype": "Link",
+    "options": "Mercaforte Municipio",
+    "insert_after": "custom_mercaforte_estado",
+    "module": "Mercaforte",
+    "allow_in_quick_entry": 1,
+    "read_only_depends_on": "eval:!doc.custom_mercaforte_estado"
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_mercaforte_ubicacion",
+    "dt": "Customer",
+    "fieldname": "custom_mercaforte_ubicacion",
+    "label": "Ubicación de la tienda",
+    "fieldtype": "Geolocation",
+    "insert_after": "custom_mercaforte_municipio",
+    "module": "Mercaforte",
+    "description": "Haz clic en el mapa para colocar el marcador. Arrástralo para ajustar la ubicación."
+  }
+]
