@@ -1,6 +1,6 @@
-# Catálogo territorial de México
+# Catálogo territorial de Morelos
 
-La app usa el Catálogo Único de Claves de Áreas Geoestadísticas Estatales, Municipales y Localidades del INEGI. El corte municipal de junio de 2026 contiene 2,478 áreas geoestadísticas municipales, incluidas las 16 alcaldías de Ciudad de México. Las 32 entidades de este corte coinciden, clave y nombre, con el catálogo nacional de entidades. Las fechas corresponden al corte de la información. Consulta realizada el 22 de noviembre de 2026. [Consulta del catálogo](https://www.inegi.org.mx/app/ageeml/) · [Historial de cortes municipales](https://www.inegi.org.mx/app/api/cateml/catuniAPI/ObtenerFecCorMun/)
+La app distribuye Morelos (clave de entidad `17`) y sus 36 municipios (claves `17001` a `17036`). Los registros proceden del corte municipal de junio de 2026 del Catálogo Único de Claves de Áreas Geoestadísticas Estatales, Municipales y Localidades del INEGI. [Consulta del catálogo](https://www.inegi.org.mx/app/ageeml/) · [Historial de cortes municipales](https://www.inegi.org.mx/app/api/cateml/catuniAPI/ObtenerFecCorMun/)
 
 | Descarga nacional | CSV UTF-8 del corte | SHA-256 del CSV |
 | --- | --- | --- |
@@ -9,4 +9,6 @@ La app usa el Catálogo Único de Claves de Áreas Geoestadísticas Estatales, M
 
 La clave del documento y el campo `clave` conservan el texto de `CVEGEO`, incluidos los ceros iniciales. El nombre procede de `NOM_ENT` o `NOM_MUN`. Cada municipio enlaza con su entidad mediante `CVE_ENT`. Los fixtures se distribuyen con la app y se cargan por orden de archivo, primero las entidades.
 
-El 22 de noviembre de 2026 se cotejaron las 32 respuestas municipales del servicio web del INEGI (`mgem/{cve_ent}`). Sus 2,478 ternas de clave, nombre y entidad coinciden con el archivo de municipios. [Servicio web del INEGI](https://www.inegi.org.mx/servicios/catalogounico/)
+El 25 de noviembre de 2026 se verificó que las 36 claves y nombres de Morelos coinciden con la respuesta municipal del servicio web del INEGI. [Municipios de Morelos](https://gaia.inegi.org.mx/wscatgeo/v2/mgem/17)
+
+Para centrar el mapa sin un marcador guardado, la app incluye las coordenadas de cada cabecera municipal. Se obtuvieron uniendo la clave municipal y `cve_cab` para consultar la localidad correspondiente en el mismo servicio del INEGI. [Municipios y claves de cabecera](https://gaia.inegi.org.mx/wscatgeo/v2/mgem/17) · [Localidad de Cuernavaca](https://gaia.inegi.org.mx/wscatgeo/v2/localidades/170070001)

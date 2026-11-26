@@ -1,4 +1,3 @@
-import json
 import math
 
 import frappe
@@ -6,29 +5,30 @@ from frappe import _
 
 
 def validate_store_location(doc, method=None):
-	estado = doc.get("custom_mercaforte_estado")
+	if doc.get("custom_mercaforte_estado") != "17":
+		frappe.throw(_("Selecciona Morelos como estado de la tienda."))
+
 	municipio = doc.get("custom_mercaforte_municipio")
-	if municipio:
-		if not estado or frappe.db.get_value("Mercaforte Municipio", municipio, "estado") != estado:
-			frappe.throw(_("Elige un municipio o alcaldía que pertenezca al estado seleccionado."))
+	if not municipio or frappe.db.get_value("Mercaforte Municipio", municipio, "estado") != "17":
+		frappe.throw(_("Selecciona un municipio de Morelos."))
 
-	raw = doc.get("custom_mercaforte_ubicacion")
-	if raw is None or raw == "":
-		return
+	doc.custom_mercaforte_latitud = _coordinate(doc.get("custom_mercaforte_latitud"), _("Latitud"), 90)
+	doc.custom_mercaforte_longitud = _coordinate(doc.get("custom_mercaforte_longitud"), _("Longitud"), 180)
 
+
+def _coordinate(value, label, limit):
+	if value is None or value == "":
+		return 0.0
+
+	# Frappe's Float conversion accepts invalid strings as zero. Validate before persistence.
 	try:
-		data = json.loads(raw) if isinstance(raw, str) else raw
-		point = read_store_point(data)
-	except (TypeError, ValueError):
-		frappe.throw(_("La ubicación de la tienda debe contener un solo marcador válido o estar vacía."))
+		number = float(value)
+	except (TypeError, ValueError, OverflowError):
+		number = None
 
-	if point is None:
-		doc.custom_mercaforte_ubicacion = None
-		return
-
-	# Leaflet expects a Feature with a properties object when it redraws saved points.
-	feature = {"type": "Feature", "geometry": {"type": "Point", "coordinates": point}, "properties": {}}
-	doc.custom_mercaforte_ubicacion = json.dumps({"type": "FeatureCollection", "features": [feature]})
+	if isinstance(value, bool) or number is None or not -limit <= number <= limit:
+		frappe.throw(_("{0} debe ser un número entre {1} y {2}.").format(label, -limit, limit))
+	return number
 
 
 def read_store_point(data):

@@ -9,30 +9,57 @@
     "options": "Mercaforte Estado",
     "insert_after": "territory",
     "module": "Mercaforte",
-    "allow_in_quick_entry": 1
+    "allow_in_quick_entry": 1,
+    "reqd": 1,
+    "default": "17"
   },
   {
     "doctype": "Custom Field",
     "name": "Customer-custom_mercaforte_municipio",
     "dt": "Customer",
     "fieldname": "custom_mercaforte_municipio",
-    "label": "Municipio o alcaldía",
+    "label": "Municipio",
     "fieldtype": "Link",
     "options": "Mercaforte Municipio",
     "insert_after": "custom_mercaforte_estado",
     "module": "Mercaforte",
     "allow_in_quick_entry": 1,
-    "read_only_depends_on": "eval:!doc.custom_mercaforte_estado"
+    "read_only_depends_on": "eval:!doc.custom_mercaforte_estado",
+    "reqd": 1
   },
   {
     "doctype": "Custom Field",
-    "name": "Customer-custom_mercaforte_ubicacion",
+    "name": "Customer-custom_mercaforte_latitud",
     "dt": "Customer",
-    "fieldname": "custom_mercaforte_ubicacion",
-    "label": "Ubicación de la tienda",
-    "fieldtype": "Geolocation",
+    "fieldname": "custom_mercaforte_latitud",
+    "label": "Latitud",
+    "fieldtype": "Float",
+    "precision": "7",
+    "default": "0",
     "insert_after": "custom_mercaforte_municipio",
-    "module": "Mercaforte",
-    "description": "Haz clic en el mapa para colocar el marcador. Arrástralo para ajustar la ubicación."
+    "module": "Mercaforte"
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_mercaforte_longitud",
+    "dt": "Customer",
+    "fieldname": "custom_mercaforte_longitud",
+    "label": "Longitud",
+    "fieldtype": "Float",
+    "precision": "7",
+    "default": "0",
+    "insert_after": "custom_mercaforte_latitud",
+    "module": "Mercaforte"
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "Customer-custom_mercaforte_abrir_mapa",
+    "dt": "Customer",
+    "fieldname": "custom_mercaforte_abrir_mapa",
+    "label": "Ver o editar ubicación",
+    "fieldtype": "Button",
+    "insert_after": "custom_mercaforte_longitud",
+    "print_hide": 1,
+    "module": "Mercaforte"
   }
 ]

@@ -12,8 +12,8 @@ required_apps = ["erpnext"]
 
 fixture_auto_order = True
 fixtures = [
-	"Mercaforte Estado",
-	"Mercaforte Municipio",
+	{"dt": "Mercaforte Estado", "filters": [["name", "=", "17"]]},
+	{"dt": "Mercaforte Municipio", "filters": [["estado", "=", "17"]]},
 	{
 		"dt": "Custom Field",
 		"filters": [
@@ -21,7 +21,9 @@ fixtures = [
 			["fieldname", "in", [
 				"custom_mercaforte_estado",
 				"custom_mercaforte_municipio",
-				"custom_mercaforte_ubicacion",
+				"custom_mercaforte_latitud",
+				"custom_mercaforte_longitud",
+				"custom_mercaforte_abrir_mapa",
 			]],
 		],
 	},

@@ -4,12 +4,22 @@ App única de Frappe para las personalizaciones de ERPNext de Mercaforte.
 
 - **App técnica:** `mercaforte_erpnext`
 - **Módulo:** `Mercaforte`
-- **Versión:** `0.2.0`
+- **Versión:** `0.3.1`
 - **Dependencia:** ERPNext
 
-Cada tienda se registra como Cliente. El alta rápida permite elegir estado y municipio o alcaldía, y continuar al formulario completo. El mapa del formulario completo guarda un marcador manual. Los tres campos son opcionales.
+Cada tienda se registra como Cliente. El estado y el municipio son obligatorios en el formulario, el alta rápida y la API. Los clientes nuevos tienen Morelos preseleccionado. El catálogo contiene sus 36 municipios con las claves en texto del corte de junio de 2026. [Catálogo del INEGI](https://gaia.inegi.org.mx/wscatgeo/v2/mgem/17)
 
-El catálogo nacional incluye 32 entidades y 2,478 municipios y alcaldías del corte del 1 de junio de 2026 del INEGI. Los documentos conservan como identificador la clave geoestadística en texto. [Catálogo Único del INEGI](https://www.inegi.org.mx/servicios/catalogounico/)
+En **Cliente → Detalles**, el botón **Ver o editar ubicación** abre el mapa desde el bloque de coordenadas, debajo de **Longitud**. Coloca o mueve el marcador, confirma la selección y guarda el Cliente. Al reabrir el mapa aparece el punto guardado. También puedes borrar el marcador. Las coordenadas son opcionales y el par `(0, 0)` representa una tienda sin ubicación.
+
+El mapa abre con unos 2 km de ancho, centrado en el marcador guardado o en la cabecera del municipio elegido. Si todavía no se eligió municipio, abre en Cuernavaca. Se puede navegar y seleccionar un punto fuera de Morelos.
+
+La API nativa admite estos cuatro campos en el parámetro `fields` de `GET /api/resource/Customer`:
+
+```json
+["custom_mercaforte_estado", "custom_mercaforte_municipio", "custom_mercaforte_latitud", "custom_mercaforte_longitud"]
+```
+
+Al actualizar desde 0.2.0, la migración convierte los puntos de `custom_mercaforte_ubicacion` a latitud y longitud antes de retirar el campo. Si hay referencias a entidades o municipios fuera de Morelos, hay que resolverlas antes de reducir el catálogo. Los clientes anteriores sin municipio deben completarlo la próxima vez que se guarden.
 
 ## Instalación
 
@@ -20,7 +30,7 @@ personalizada. No se instala con `bench get-app` desde otro repositorio:
 bench --site <sitio> install-app mercaforte_erpnext
 ```
 
-Desde la carpeta de infraestructura `erpnext/`, construye la imagen con `docker compose -f compose.build.yaml build`. El menú de `manager.sh` permite inicializar el sitio con la app. Para actualizar un sitio existente, respáldalo, inicia los servicios con la nueva imagen y ejecuta `bench --site <sitio> migrate` en su backend. La migración sincroniza los DocTypes, los dos catálogos y los campos de Cliente.
+Desde la carpeta de infraestructura `erpnext/`, las opciones **Inicializar** e **Iniciar** del manager construyen la imagen desde el Dockerfile local. **Inicializar** también instala la app si hace falta. Para actualizar un sitio existente, respáldalo, elige **Iniciar** y ejecuta `bench --site <sitio> migrate` en su backend. La migración sincroniza los DocTypes, los dos catálogos y los campos de Cliente.
 
 ## Convenciones para futuras personalizaciones
 

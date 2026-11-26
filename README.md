@@ -4,14 +4,15 @@ Este repositorio despliega ERPNext `v16.60.0` con la app `mercaforte_erpnext`. E
 
 ## Construir la imagen
 
-Para construir la imagen desde la raíz del repositorio, entra en la carpeta de ERPNext.
+Las opciones **Inicializar** e **Iniciar** construyen la imagen desde `erpnext/Dockerfile` antes de levantar los servicios. Compose la construye una vez para los siete servicios de Frappe. El perfil de desarrollo usa ARM64 en Mac y el de producción usa AMD64 en Debian.
+
+Docker reutiliza las capas vigentes. Al editar `app/`, vuelve a copiar la app y a instalarla. Para forzar una construcción completa en un arranque, ejecuta tu copia del manager desde `erpnext/` con esta variable y selecciona **Inicializar** o **Iniciar**.
 
 ```bash
-cd erpnext
-docker compose -f compose.build.yaml build
+ERPNEXT_BUILD_NO_CACHE=true ./manager.local.sh
 ```
 
-Ejecuta el mismo comando en la Mac ARM64 de desarrollo y en el servidor Debian x86_64 de producción. Cada equipo construye su propia imagen `mercaforte/erpnext:v16.60.0-app0.2.0`. El Dockerfile incorpora `app/` al entorno Python de Bench y prepara sus archivos públicos. El Compose principal usa la etiqueta local con `pull_policy: never`.
+Si quieres construir sin caché en cada arranque de ese equipo, guarda `ERPNEXT_BUILD_NO_CACHE=true` en `erpnext/.env` después de inicializarlo.
 
 ## Inicializar e iniciar el sitio
 
@@ -26,7 +27,7 @@ Configura `entorno='prod'`, `dominio`, `correo_letsencrypt`, `password_mariadb`,
 Ejecuta tu copia (`./manager.prod.sh` o `./manager.local.sh`). Elige la acción correspondiente en el menú.
 
 1. **Inicializar** crea `.env` desde `.env.example`, o comprueba el existente, y le da permisos `600`. Levanta los servicios, crea el sitio si hace falta y comprueba que ERPNext y la app estén instalados.
-2. **Iniciar** levanta los servicios con la imagen local ya construida.
+2. **Iniciar** construye la imagen con el código actual y levanta los servicios conservando los volúmenes.
 3. **Detener** baja los servicios y conserva los volúmenes.
 4. **Detener y purgar los datos** elimina los volúmenes de esa pila tras confirmar con `PURGAR`.
 
@@ -53,17 +54,16 @@ Con el sitio en ejecución, respalda la base y los archivos antes de actualizar.
 
 ```bash
 erp_compose exec -T backend bench --site "$sitio" backup --with-files --compress
-docker compose -f compose.build.yaml build
 erp_compose up -d
 erp_compose exec -T backend bench --site "$sitio" migrate
 erp_compose exec -T backend bench --site "$sitio" list-apps
 ```
 
-La migración sincroniza los DocTypes, el catálogo y los campos de Cliente. Los respaldos quedan en el directorio privado del sitio dentro de su volumen. Para volver a una entrega anterior, usa su etiqueta de imagen y, si la migración cambió datos o esquema de forma incompatible, restaura también el respaldo correspondiente.
+La migración sincroniza los DocTypes, el catálogo y los campos de Cliente. Los respaldos quedan en el directorio privado del sitio dentro de su volumen. Para volver a una entrega anterior, recupera el código y el Dockerfile de esa versión antes de levantarla y, si la migración cambió datos o esquema de forma incompatible, restaura también el respaldo correspondiente.
 
 ## Desarrollo y pruebas
 
-El código de `app/` entra en la imagen durante la construcción. Después de editarlo, reconstruye la imagen y recrea los servicios con `erp_compose up -d`. Si exportas personalizaciones desde el sitio de desarrollo, copia los JSON generados en el backend a la carpeta del módulo bajo `app/mercaforte_erpnext/` antes de recrear el contenedor.
+Después de editar `app/`, ejecuta `erp_compose up -d` para incorporar los cambios a la imagen y recrear los servicios que los necesitan. Si exportas personalizaciones desde el sitio de desarrollo, copia los JSON generados en el backend a la carpeta del módulo bajo `app/mercaforte_erpnext/` antes de recrear el contenedor.
 
 En el sitio de desarrollo puedes habilitar el modo desarrollador y ejecutar las pruebas de la app.
 
